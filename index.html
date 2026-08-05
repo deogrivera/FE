@@ -3,330 +3,62 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Fuel Consumption Dashboard · Monthly Trends</title>
-    <!-- Chart.js CDN for line charts -->
+    <title>Fuel Dashboard · Monthly Liters & Cost</title>
+    <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-    <!-- Font Awesome for icons -->
+    <!-- Font Awesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-        }
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', sans-serif; }
+        body { background: #f2f6fc; display: flex; justify-content: center; padding: 2rem 1.5rem; min-height: 100vh; }
+        .dashboard { max-width: 1300px; width: 100%; }
 
-        body {
-            background: #f2f6fc;
-            display: flex;
-            justify-content: center;
-            padding: 2rem 1.5rem;
-            min-height: 100vh;
-        }
+        .header { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; margin-bottom: 2rem; }
+        .header h1 { font-size: 2rem; font-weight: 700; color: #0b2a41; display: flex; align-items: center; gap: 0.75rem; }
+        .header h1 i { color: #2563eb; }
+        .header .sub { background: #e6edf7; padding: 0.5rem 1.2rem; border-radius: 40px; font-weight: 500; color: #3d5a78; }
 
-        .dashboard {
-            max-width: 1300px;
-            width: 100%;
-        }
+        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 1.2rem; margin-bottom: 2rem; }
+        .stat-card { background: white; padding: 1.2rem 1.5rem; border-radius: 1.8rem; border: 1px solid #e3ebf5; box-shadow: 0 4px 12px -8px rgba(0,20,30,0.06); }
+        .stat-label { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.03em; color: #5f7d9c; display: flex; align-items: center; gap: 0.4rem; }
+        .stat-value { font-size: 1.9rem; font-weight: 700; color: #0b2a41; margin-top: 0.15rem; }
+        .stat-sub { font-size: 0.8rem; color: #4f6f8f; margin-top: 0.1rem; }
 
-        /* header */
-        .header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            flex-wrap: wrap;
-            margin-bottom: 2rem;
-        }
+        .chart-container { background: white; border-radius: 2rem; padding: 1.8rem; border: 1px solid #e3ebf5; margin-bottom: 2rem; box-shadow: 0 8px 20px -12px rgba(0,20,30,0.06); }
+        .chart-header { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; margin-bottom: 0.5rem; }
+        .chart-header h2 { font-size: 1.2rem; font-weight: 600; color: #1a3652; display: flex; align-items: center; gap: 0.5rem; }
+        .chart-header h2 i { color: #2563eb; }
+        .chart-wrapper { position: relative; height: 280px; margin-top: 0.5rem; }
 
-        .header h1 {
-            font-size: 2rem;
-            font-weight: 700;
-            color: #0b2a41;
-            display: flex;
-            align-items: center;
-            gap: 0.75rem;
-        }
+        .data-section { background: white; border-radius: 2rem; border: 1px solid #e3ebf5; overflow: hidden; }
+        .data-header { background: #f9fcff; padding: 1rem 1.8rem; border-bottom: 1px solid #e3ebf5; display: flex; justify-content: space-between; flex-wrap: wrap; align-items: center; }
+        .data-header h3 { font-weight: 600; color: #1f3b57; display: flex; align-items: center; gap: 0.5rem; }
+        .data-header h3 i { color: #2563eb; }
+        .data-body { padding: 1.5rem 1.8rem; }
 
-        .header h1 i {
-            color: #2563eb;
-        }
+        .input-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 1.2rem; }
+        @media (max-width: 700px) { .input-grid { grid-template-columns: 1fr; } }
 
-        .header .sub {
-            color: #3d5a78;
-            background: #e6edf7;
-            padding: 0.5rem 1.2rem;
-            border-radius: 40px;
-            font-weight: 500;
-            font-size: 0.9rem;
-        }
+        .field-group label { display: block; font-size: 0.75rem; font-weight: 600; color: #3d5a78; margin-bottom: 0.3rem; }
+        .field-group input { width: 100%; padding: 0.6rem 1rem; border-radius: 60px; border: 1px solid #d6e2f0; font-size: 0.9rem; background: #fbfdff; }
+        .field-group input:focus { outline: none; border-color: #2563eb; box-shadow: 0 0 0 3px rgba(37,99,235,0.15); }
 
-        /* card grid */
-        .stats-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
-            gap: 1.2rem;
-            margin-bottom: 2rem;
-        }
+        .action-row { display: flex; gap: 0.8rem; flex-wrap: wrap; align-items: center; margin-top: 0.5rem; }
+        .btn { background: #eef3f9; border: none; padding: 0.6rem 1.8rem; border-radius: 60px; font-weight: 600; font-size: 0.9rem; color: #1f3b57; cursor: pointer; display: inline-flex; align-items: center; gap: 0.5rem; border: 1px solid transparent; }
+        .btn-primary { background: #2563eb; color: white; box-shadow: 0 4px 12px -4px #2563eb70; }
+        .btn-primary:hover { background: #1d4ed8; transform: scale(1.01); }
+        .btn-secondary { background: #e6edf7; }
+        .btn-secondary:hover { background: #d5e0ee; }
+        .sample-link { color: #2563eb; cursor: pointer; font-weight: 500; font-size: 0.85rem; margin-left: 0.5rem; }
+        .sample-link:hover { text-decoration: underline; }
 
-        .stat-card {
-            background: white;
-            padding: 1.2rem 1.2rem 1rem 1.5rem;
-            border-radius: 1.8rem;
-            border: 1px solid #e3ebf5;
-            box-shadow: 0 4px 12px -8px rgba(0, 20, 30, 0.06);
-        }
-
-        .stat-label {
-            font-size: 0.75rem;
-            text-transform: uppercase;
-            letter-spacing: 0.03em;
-            color: #5f7d9c;
-            display: flex;
-            align-items: center;
-            gap: 0.4rem;
-        }
-
-        .stat-value {
-            font-size: 1.9rem;
-            font-weight: 700;
-            color: #0b2a41;
-            margin-top: 0.15rem;
-        }
-
-        .stat-sub {
-            font-size: 0.8rem;
-            color: #4f6f8f;
-            margin-top: 0.1rem;
-        }
-
-        /* chart row */
-        .chart-container {
-            background: white;
-            border-radius: 2rem;
-            padding: 1.8rem 1.8rem 1rem 1.8rem;
-            border: 1px solid #e3ebf5;
-            margin-bottom: 2rem;
-            box-shadow: 0 8px 20px -12px rgba(0, 20, 30, 0.06);
-        }
-
-        .chart-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            flex-wrap: wrap;
-            margin-bottom: 0.5rem;
-        }
-
-        .chart-header h2 {
-            font-size: 1.2rem;
-            font-weight: 600;
-            color: #1a3652;
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-        }
-
-        .chart-header h2 i {
-            color: #2563eb;
-        }
-
-        .chart-wrapper {
-            position: relative;
-            height: 280px;
-            margin: 0.5rem 0 0.2rem 0;
-        }
-
-        /* data input section */
-        .data-section {
-            background: white;
-            border-radius: 2rem;
-            border: 1px solid #e3ebf5;
-            overflow: hidden;
-            box-shadow: 0 8px 20px -12px rgba(0, 20, 30, 0.04);
-        }
-
-        .data-header {
-            background: #f9fcff;
-            padding: 1rem 1.8rem;
-            border-bottom: 1px solid #e3ebf5;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            flex-wrap: wrap;
-        }
-
-        .data-header h3 {
-            font-weight: 600;
-            color: #1f3b57;
-            font-size: 1rem;
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-        }
-
-        .data-header h3 i {
-            color: #2563eb;
-        }
-
-        .data-header .hint {
-            font-size: 0.8rem;
-            color: #5f7d9c;
-        }
-
-        .data-body {
-            padding: 1.5rem 1.8rem;
-        }
-
-        .csv-instruction {
-            background: #f0f6fe;
-            border-radius: 1.2rem;
-            padding: 0.8rem 1.2rem;
-            margin-bottom: 1.5rem;
-            display: flex;
-            align-items: center;
-            gap: 1rem;
-            flex-wrap: wrap;
-            font-size: 0.9rem;
-            color: #1f3b57;
-            border: 1px dashed #b7cee8;
-        }
-
-        .csv-instruction i {
-            color: #2563eb;
-            font-size: 1.2rem;
-        }
-
-        .csv-instruction code {
-            background: #ffffffd0;
-            padding: 0.2rem 0.8rem;
-            border-radius: 40px;
-            font-size: 0.8rem;
-            font-weight: 600;
-            color: #0b2a41;
-            border: 1px solid #c7d9ed;
-        }
-
-        textarea {
-            width: 100%;
-            padding: 1rem 1.2rem;
-            border-radius: 1.5rem;
-            border: 1px solid #d6e2f0;
-            font-size: 0.9rem;
-            font-family: 'Courier New', monospace;
-            background: #fbfdff;
-            resize: vertical;
-            min-height: 120px;
-            transition: 0.15s;
-        }
-
-        textarea:focus {
-            outline: none;
-            border-color: #2563eb;
-            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
-        }
-
-        .action-row {
-            display: flex;
-            gap: 0.8rem;
-            flex-wrap: wrap;
-            margin-top: 1.2rem;
-            align-items: center;
-        }
-
-        .btn {
-            background: #eef3f9;
-            border: none;
-            padding: 0.6rem 1.8rem;
-            border-radius: 60px;
-            font-weight: 600;
-            font-size: 0.9rem;
-            color: #1f3b57;
-            cursor: pointer;
-            transition: 0.15s;
-            display: inline-flex;
-            align-items: center;
-            gap: 0.5rem;
-            border: 1px solid transparent;
-        }
-
-        .btn-primary {
-            background: #2563eb;
-            color: white;
-            box-shadow: 0 4px 12px -4px #2563eb70;
-        }
-
-        .btn-primary:hover {
-            background: #1d4ed8;
-            transform: scale(1.01);
-        }
-
-        .btn-secondary {
-            background: #e6edf7;
-        }
-
-        .btn-secondary:hover {
-            background: #d5e0ee;
-        }
-
-        .btn i {
-            font-size: 0.9rem;
-        }
-
-        .sample-link {
-            font-size: 0.85rem;
-            color: #2563eb;
-            cursor: pointer;
-            font-weight: 500;
-        }
-
-        .sample-link:hover {
-            text-decoration: underline;
-        }
-
-        /* table (optional mini preview) */
-        .preview-table {
-            margin-top: 1.5rem;
-            border-radius: 1.2rem;
-            overflow-x: auto;
-            border: 1px solid #e3ebf5;
-        }
-
-        .preview-table table {
-            width: 100%;
-            border-collapse: collapse;
-            font-size: 0.85rem;
-        }
-
-        .preview-table th {
-            text-align: left;
-            padding: 0.6rem 1rem;
-            background: #f7faff;
-            color: #1f3b57;
-            font-weight: 600;
-            border-bottom: 1px solid #e3ebf5;
-        }
-
-        .preview-table td {
-            padding: 0.6rem 1rem;
-            border-bottom: 1px solid #f0f4fa;
-            color: #1d334a;
-        }
-
-        .preview-table tr:last-child td {
-            border-bottom: none;
-        }
-
-        .empty-message {
-            color: #7a94b2;
-            font-style: italic;
-            padding: 0.8rem 1rem;
-        }
-
-        @media (max-width: 700px) {
-            .header h1 { font-size: 1.5rem; }
-            .stat-value { font-size: 1.5rem; }
-            .data-body { padding: 1rem; }
-        }
+        .preview-table { margin-top: 1.5rem; border-radius: 1.2rem; overflow-x: auto; border: 1px solid #e3ebf5; }
+        .preview-table table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+        .preview-table th { text-align: left; padding: 0.6rem 1rem; background: #f7faff; color: #1f3b57; border-bottom: 1px solid #e3ebf5; }
+        .preview-table td { padding: 0.6rem 1rem; border-bottom: 1px solid #f0f4fa; color: #1d334a; }
+        .preview-table tr:last-child td { border-bottom: none; }
+        .empty-message { color: #7a94b2; font-style: italic; padding: 0.8rem 1rem; }
+        .month-tag { display: inline-block; background: #eef4ff; padding: 0.1rem 0.6rem; border-radius: 30px; font-size: 0.7rem; font-weight: 600; color: #1e4a7a; }
     </style>
 </head>
 <body>
@@ -335,10 +67,10 @@
     <!-- Header -->
     <div class="header">
         <h1><i class="fas fa-gas-pump"></i> Fuel Monitor</h1>
-        <span class="sub"><i class="far fa-calendar-alt"></i> Monthly summary · liters & cost</span>
+        <span class="sub"><i class="far fa-calendar-alt"></i> Monthly liters & cost</span>
     </div>
 
-    <!-- Summary cards -->
+    <!-- Summary Cards -->
     <div class="stats-grid" id="statsGrid">
         <div class="stat-card">
             <div class="stat-label"><i class="fas fa-calendar-alt"></i> Months</div>
@@ -376,33 +108,43 @@
         </div>
     </div>
 
-    <!-- Data input -->
+    <!-- Data Input (specific to sheet layout) -->
     <div class="data-section">
         <div class="data-header">
-            <h3><i class="fas fa-table"></i> Paste CSV Data</h3>
-            <span class="hint"><i class="far fa-copy"></i> from Google Sheets</span>
+            <h3><i class="fas fa-table"></i> Enter Monthly Totals</h3>
+            <span class="sub" style="font-size:0.8rem; color:#5f7d9c;">
+                <i class="fas fa-arrows-left-right"></i> Row 102 · Col F, H, J … AB
+            </span>
         </div>
         <div class="data-body">
-            <div class="csv-instruction">
-                <i class="fas fa-info-circle"></i>
-                <span>Paste your CSV with columns: <strong>Date, Liters, Cost</strong> (or <strong>Date, Liters, Amount</strong>).</span>
-                <code>Date, Liters, Cost</code>
+            <div style="background: #f0f6fe; border-radius: 1.2rem; padding: 0.8rem 1.2rem; margin-bottom: 1.5rem; display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; border: 1px dashed #b7cee8; font-size:0.9rem; color:#1f3b57;">
+                <i class="fas fa-info-circle" style="color:#2563eb;"></i>
+                <span>Paste the <strong>12 monthly totals</strong> (liters) from Row 102, columns F through AB.</span>
                 <span class="sample-link" id="loadSampleBtn"><i class="fas fa-arrow-right"></i> load sample</span>
             </div>
 
-            <textarea id="csvInput" placeholder="Date, Liters, Cost&#10;2025-01-15, 45.2, 67.80&#10;2025-01-28, 38.1, 57.15&#10;2025-02-05, 50.0, 75.00"></textarea>
+            <div class="input-grid">
+                <div class="field-group">
+                    <label><i class="far fa-calendar"></i> Monthly Liters (comma separated)</label>
+                    <input type="text" id="litersInput" placeholder="e.g. 45.2, 38.1, 50.0, 47.2, 44.8, 60.0, 52.4, 48.0, 41.3, 57.5, 49.0, 53.2" />
+                </div>
+                <div class="field-group">
+                    <label><i class="fas fa-dollar-sign"></i> Monthly Cost (comma separated, optional)</label>
+                    <input type="text" id="costInput" placeholder="e.g. 67.80, 57.15, 75.00, 70.80, 67.20, 90.00, 78.60, 72.00, 61.95, 86.25, 73.50, 79.80" />
+                </div>
+            </div>
 
             <div class="action-row">
                 <button class="btn btn-primary" id="updateBtn"><i class="fas fa-arrow-up"></i> Update Dashboard</button>
                 <button class="btn btn-secondary" id="clearBtn"><i class="fas fa-undo-alt"></i> Clear</button>
-                <span style="font-size:0.8rem; color:#5f7d9c; margin-left:auto;" id="rowCount">0 rows loaded</span>
+                <span style="font-size:0.8rem; color:#5f7d9c; margin-left:auto;" id="rowCount">0 months loaded</span>
             </div>
 
             <!-- Preview table -->
             <div class="preview-table" id="previewContainer">
                 <table>
-                    <thead><tr><th>Date</th><th>Liters</th><th>Cost</th></tr></thead>
-                    <tbody id="previewBody"><tr><td colspan="3" class="empty-message">No data loaded yet</td></tr></tbody>
+                    <thead><tr><th>Month</th><th>Liters</th><th>Cost (USD)</th></tr></thead>
+                    <tbody id="previewBody"><tr><td colspan="3" class="empty-message">Enter monthly values above</td></tr></tbody>
                 </table>
             </div>
         </div>
@@ -411,139 +153,57 @@
 
 <script>
     (function() {
-        // ----- DOM refs -----
-        const csvInput = document.getElementById('csvInput');
+        // ---- DOM refs ----
+        const litersInput = document.getElementById('litersInput');
+        const costInput = document.getElementById('costInput');
         const updateBtn = document.getElementById('updateBtn');
         const clearBtn = document.getElementById('clearBtn');
         const loadSampleBtn = document.getElementById('loadSampleBtn');
         const previewBody = document.getElementById('previewBody');
         const rowCountSpan = document.getElementById('rowCount');
 
-        // stat spans
         const statMonths = document.getElementById('statMonths');
         const statLiters = document.getElementById('statLiters');
         const statCost = document.getElementById('statCost');
         const statAvgLiters = document.getElementById('statAvgLiters');
 
-        // chart instance
         let fuelChart = null;
 
-        // ----- helpers -----
-        function parseCSV(text) {
-            const lines = text.split(/\r?\n/).filter(line => line.trim() !== '');
-            if (lines.length === 0) return [];
+        // ---- helpers ----
+        const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
-            // detect header: if first row contains 'date' or 'liters' or 'cost' (case-insensitive)
-            const header = lines[0].split(',').map(s => s.trim().toLowerCase());
-            const hasHeader = header.some(h => h.includes('date') || h.includes('liter') || h.includes('cost') || h.includes('amount') || h.includes('fuel'));
+        function parseNumberList(str) {
+            if (!str.trim()) return [];
+            return str.split(',').map(s => {
+                const num = parseFloat(s.trim());
+                return isNaN(num) ? null : num;
+            }).filter(v => v !== null);
+        }
 
-            const startIdx = hasHeader ? 1 : 0;
-            const dataRows = [];
+        function updateDashboard(litersArr, costArr) {
+            // if costArr is shorter, pad with zeros or use liters as fallback? we'll pad with 0
+            const maxLen = Math.max(litersArr.length, costArr.length);
+            const months = [];
+            const liters = [];
+            const costs = [];
 
-            for (let i = startIdx; i < lines.length; i++) {
-                const parts = lines[i].split(',').map(s => s.trim());
-                if (parts.length < 3) continue;
-
-                // try to find date, liters, cost
-                let dateStr = parts[0];
-                let liters = parseFloat(parts[1]);
-                let cost = parseFloat(parts[2]);
-
-                // if header was present, but columns might be in different order, we try to be smart
-                if (hasHeader) {
-                    // re-map based on header names
-                    const headerMap = {};
-                    header.forEach((h, idx) => {
-                        if (h.includes('date')) headerMap.date = idx;
-                        else if (h.includes('liter') || h.includes('fuel') || h.includes('volume')) headerMap.liters = idx;
-                        else if (h.includes('cost') || h.includes('amount') || h.includes('price') || h.includes('total')) headerMap.cost = idx;
-                    });
-                    // if we found mapping, use it
-                    if (headerMap.date !== undefined && headerMap.liters !== undefined && headerMap.cost !== undefined) {
-                        dateStr = parts[headerMap.date] || parts[0];
-                        liters = parseFloat(parts[headerMap.liters]) || parseFloat(parts[1]);
-                        cost = parseFloat(parts[headerMap.cost]) || parseFloat(parts[2]);
-                    } else {
-                        // fallback: assume first 3 are date, liters, cost
-                        dateStr = parts[0];
-                        liters = parseFloat(parts[1]);
-                        cost = parseFloat(parts[2]);
+            for (let i = 0; i < maxLen; i++) {
+                if (i < 12) {
+                    const l = (i < litersArr.length) ? litersArr[i] : 0;
+                    const c = (i < costArr.length) ? costArr[i] : 0;
+                    if (l > 0 || c > 0) {
+                        months.push(monthNames[i]);
+                        liters.push(l);
+                        costs.push(c);
                     }
                 }
-
-                if (isNaN(liters) || isNaN(cost)) continue;
-
-                // try to parse date
-                let dateObj = new Date(dateStr);
-                if (isNaN(dateObj.getTime())) {
-                    // try alternative: if format is MM/DD/YYYY or DD/MM/YYYY
-                    const partsDate = dateStr.split(/[\/\-.]/);
-                    if (partsDate.length === 3) {
-                        // try YYYY-MM-DD first
-                        let y = parseInt(partsDate[0]);
-                        let m = parseInt(partsDate[1]) - 1;
-                        let d = parseInt(partsDate[2]);
-                        if (!isNaN(y) && !isNaN(m) && !isNaN(d) && y > 1000) {
-                            dateObj = new Date(y, m, d);
-                        } else {
-                            // try MM/DD/YYYY
-                            y = parseInt(partsDate[2]);
-                            m = parseInt(partsDate[0]) - 1;
-                            d = parseInt(partsDate[1]);
-                            if (!isNaN(y) && !isNaN(m) && !isNaN(d) && y > 1000) {
-                                dateObj = new Date(y, m, d);
-                            }
-                        }
-                    }
-                }
-
-                if (isNaN(dateObj.getTime())) continue;
-
-                dataRows.push({
-                    date: dateObj,
-                    dateStr: dateStr,
-                    liters: liters,
-                    cost: cost
-                });
             }
 
-            return dataRows;
-        }
-
-        function aggregateMonthly(data) {
-            const map = new Map();
-            data.forEach(item => {
-                const year = item.date.getFullYear();
-                const month = item.date.getMonth(); // 0-11
-                const key = `${year}-${String(month + 1).padStart(2, '0')}`;
-                if (!map.has(key)) {
-                    map.set(key, { year, month, liters: 0, cost: 0, count: 0 });
-                }
-                const entry = map.get(key);
-                entry.liters += item.liters;
-                entry.cost += item.cost;
-                entry.count += 1;
-            });
-            // sort by key (year-month)
-            const sorted = Array.from(map.entries()).sort((a, b) => a[0].localeCompare(b[0]));
-            return sorted.map(([key, val]) => ({
-                key,
-                year: val.year,
-                month: val.month,
-                liters: Math.round(val.liters * 100) / 100,
-                cost: Math.round(val.cost * 100) / 100,
-                count: val.count
-            }));
-        }
-
-        function updateDashboard(csvText) {
-            const rawData = parseCSV(csvText);
-            // update preview
+            // update preview table
             previewBody.innerHTML = '';
-            if (rawData.length === 0) {
-                previewBody.innerHTML = `<tr><td colspan="3" class="empty-message">No valid data found. Check format: Date, Liters, Cost</td></tr>`;
-                rowCountSpan.textContent = '0 rows';
-                // clear stats and chart
+            if (months.length === 0) {
+                previewBody.innerHTML = `<tr><td colspan="3" class="empty-message">No valid data. Enter monthly liters (and optional cost).</td></tr>`;
+                rowCountSpan.textContent = '0 months';
                 statMonths.textContent = '0';
                 statLiters.textContent = '0.0';
                 statCost.textContent = '$0';
@@ -552,64 +212,37 @@
                 return;
             }
 
-            // show first 5 rows in preview
-            const previewRows = rawData.slice(0, 10);
-            previewRows.forEach(row => {
+            // show all months in preview
+            months.forEach((m, idx) => {
                 const tr = document.createElement('tr');
-                tr.innerHTML = `<td>${row.dateStr}</td><td>${row.liters.toFixed(1)}</td><td>$${row.cost.toFixed(2)}</td>`;
+                const costDisplay = costs[idx] > 0 ? `$${costs[idx].toFixed(2)}` : '—';
+                tr.innerHTML = `<td><span class="month-tag">${m}</span></td><td>${liters[idx].toFixed(1)}</td><td>${costDisplay}</td>`;
                 previewBody.appendChild(tr);
             });
-            if (rawData.length > 10) {
-                const tr = document.createElement('tr');
-                tr.innerHTML = `<td colspan="3" style="font-style:italic; color:#7a94b2;">… and ${rawData.length - 10} more</td>`;
-                previewBody.appendChild(tr);
-            }
-            rowCountSpan.textContent = `${rawData.length} rows`;
+            rowCountSpan.textContent = `${months.length} months`;
 
-            // aggregate monthly
-            const monthly = aggregateMonthly(rawData);
-            if (monthly.length === 0) {
-                statMonths.textContent = '0';
-                statLiters.textContent = '0.0';
-                statCost.textContent = '$0';
-                statAvgLiters.textContent = '0.0';
-                if (fuelChart) { fuelChart.destroy(); fuelChart = null; }
-                return;
-            }
+            // stats
+            const totalLiters = liters.reduce((a,b) => a + b, 0);
+            const totalCost = costs.reduce((a,b) => a + b, 0);
+            const avgLiters = totalLiters / months.length;
 
-            // update stats
-            const totalLiters = monthly.reduce((sum, m) => sum + m.liters, 0);
-            const totalCost = monthly.reduce((sum, m) => sum + m.cost, 0);
-            const avgLiters = totalLiters / monthly.length;
-
-            statMonths.textContent = monthly.length;
+            statMonths.textContent = months.length;
             statLiters.textContent = totalLiters.toFixed(1);
             statCost.textContent = `$${totalCost.toFixed(2)}`;
             statAvgLiters.textContent = avgLiters.toFixed(1);
 
-            // chart labels & data
-            const labels = monthly.map(m => {
-                const date = new Date(m.year, m.month, 1);
-                return date.toLocaleString('default', { month: 'short', year: 'numeric' });
-            });
-            const litersData = monthly.map(m => m.liters);
-            const costData = monthly.map(m => m.cost);
-
-            // destroy old chart
-            if (fuelChart) {
-                fuelChart.destroy();
-                fuelChart = null;
-            }
+            // chart
+            if (fuelChart) { fuelChart.destroy(); fuelChart = null; }
 
             const ctx = document.getElementById('fuelChart').getContext('2d');
             fuelChart = new Chart(ctx, {
                 type: 'line',
                 data: {
-                    labels: labels,
+                    labels: months,
                     datasets: [
                         {
                             label: 'Liters',
-                            data: litersData,
+                            data: liters,
                             borderColor: '#2563eb',
                             backgroundColor: 'rgba(37, 99, 235, 0.05)',
                             borderWidth: 3,
@@ -620,7 +253,7 @@
                         },
                         {
                             label: 'Cost (USD)',
-                            data: costData,
+                            data: costs,
                             borderColor: '#f97316',
                             backgroundColor: 'rgba(249, 115, 22, 0.05)',
                             borderWidth: 3,
@@ -628,6 +261,7 @@
                             pointRadius: 4,
                             tension: 0.2,
                             yAxisID: 'yCost',
+                            hidden: costs.every(c => c === 0),
                         }
                     ]
                 },
@@ -637,11 +271,7 @@
                     interaction: { mode: 'index', intersect: false },
                     plugins: {
                         legend: {
-                            labels: {
-                                usePointStyle: true,
-                                boxWidth: 8,
-                                font: { weight: '500', size: 12 }
-                            }
+                            labels: { usePointStyle: true, boxWidth: 8, font: { weight: '500', size: 12 } }
                         }
                     },
                     scales: {
@@ -650,43 +280,32 @@
                             display: true,
                             position: 'left',
                             grid: { drawOnChartArea: false },
-                            title: {
-                                display: true,
-                                text: 'Liters',
-                                color: '#2563eb',
-                                font: { weight: '500' }
-                            }
+                            title: { display: true, text: 'Liters', color: '#2563eb', font: { weight: '500' } }
                         },
                         yCost: {
                             type: 'linear',
                             display: true,
                             position: 'right',
                             grid: { drawOnChartArea: false },
-                            title: {
-                                display: true,
-                                text: 'Cost (USD)',
-                                color: '#f97316',
-                                font: { weight: '500' }
-                            },
-                            ticks: {
-                                callback: function(value) { return '$' + value.toFixed(0); }
-                            }
+                            title: { display: true, text: 'Cost (USD)', color: '#f97316', font: { weight: '500' } },
+                            ticks: { callback: function(value) { return '$' + value.toFixed(0); } }
                         }
                     }
                 }
             });
         }
 
-        // ----- event handlers -----
-        function updateFromInput() {
-            const text = csvInput.value;
-            updateDashboard(text);
+        function updateFromInputs() {
+            const litersArr = parseNumberList(litersInput.value);
+            const costArr = parseNumberList(costInput.value);
+            updateDashboard(litersArr, costArr);
         }
 
         function clearData() {
-            csvInput.value = '';
-            previewBody.innerHTML = `<tr><td colspan="3" class="empty-message">No data loaded yet</td></tr>`;
-            rowCountSpan.textContent = '0 rows';
+            litersInput.value = '';
+            costInput.value = '';
+            previewBody.innerHTML = `<tr><td colspan="3" class="empty-message">Enter monthly values above</td></tr>`;
+            rowCountSpan.textContent = '0 months';
             statMonths.textContent = '0';
             statLiters.textContent = '0.0';
             statCost.textContent = '$0';
@@ -695,43 +314,23 @@
         }
 
         function loadSample() {
-            const sample = `Date, Liters, Cost
-        2025-01-05, 42.3, 63.45
-        2025-01-19, 38.7, 58.05
-        2025-02-02, 55.0, 82.50
-        2025-02-18, 47.2, 70.80
-        2025-03-01, 50.1, 75.15
-        2025-03-22, 44.8, 67.20
-        2025-04-05, 60.0, 90.00
-        2025-04-20, 52.4, 78.60
-        2025-05-10, 48.0, 72.00
-        2025-05-28, 41.3, 61.95
-        2025-06-02, 57.5, 86.25
-        2025-06-25, 49.0, 73.50`;
-            csvInput.value = sample;
-            updateFromInput();
+            // Sample data matching typical monthly fuel totals
+            litersInput.value = '45.2, 38.1, 50.0, 47.2, 44.8, 60.0, 52.4, 48.0, 41.3, 57.5, 49.0, 53.2';
+            costInput.value = '67.80, 57.15, 75.00, 70.80, 67.20, 90.00, 78.60, 72.00, 61.95, 86.25, 73.50, 79.80';
+            updateFromInputs();
         }
 
-        // ----- attach events -----
-        updateBtn.addEventListener('click', updateFromInput);
+        // ---- attach events ----
+        updateBtn.addEventListener('click', updateFromInputs);
         clearBtn.addEventListener('click', clearData);
         loadSampleBtn.addEventListener('click', loadSample);
 
-        // auto-load sample on first visit?
-        window.addEventListener('load', () => {
-            // load sample so dashboard looks nice immediately
-            loadSample();
-        });
+        // load sample on first visit
+        window.addEventListener('load', loadSample);
 
-        // Allow paste and auto-update? we do it manually via button.
-        // Also allow Ctrl+Enter in textarea
-        csvInput.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
-                e.preventDefault();
-                updateFromInput();
-            }
-        });
-
+        // allow Enter key in inputs
+        litersInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); updateFromInputs(); } });
+        costInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); updateFromInputs(); } });
     })();
 </script>
 </body>

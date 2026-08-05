@@ -3,9 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Fuel Dashboard · Auto CSV Fetch</title>
+    <title>Fuel Dashboard · Monthly Liters & Cost (PHP)</title>
     <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <!-- Chart.js Data Labels Plugin -->
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
     <!-- Font Awesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <style>
@@ -28,7 +30,7 @@
         .chart-header { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; margin-bottom: 0.5rem; }
         .chart-header h2 { font-size: 1.2rem; font-weight: 600; color: #1a3652; display: flex; align-items: center; gap: 0.5rem; }
         .chart-header h2 i { color: #2563eb; }
-        .chart-wrapper { position: relative; height: 280px; margin-top: 0.5rem; }
+        .chart-wrapper { position: relative; height: 320px; margin-top: 0.5rem; }
 
         .data-section { background: white; border-radius: 2rem; border: 1px solid #e3ebf5; overflow: hidden; }
         .data-header { background: #f9fcff; padding: 1rem 1.8rem; border-bottom: 1px solid #e3ebf5; display: flex; justify-content: space-between; flex-wrap: wrap; align-items: center; }
@@ -49,8 +51,6 @@
         .btn-primary:hover { background: #1d4ed8; transform: scale(1.01); }
         .btn-secondary { background: #e6edf7; }
         .btn-secondary:hover { background: #d5e0ee; }
-        .btn-success { background: #16a34a; color: white; }
-        .btn-success:hover { background: #15803d; }
         .sample-link { color: #2563eb; cursor: pointer; font-weight: 500; font-size: 0.85rem; }
         .sample-link:hover { text-decoration: underline; }
 
@@ -82,7 +82,7 @@
     <!-- Header -->
     <div class="header">
         <h1><i class="fas fa-gas-pump"></i> Fuel Monitor</h1>
-        <span class="sub"><i class="far fa-calendar-alt"></i> Monthly liters & cost</span>
+        <span class="sub"><i class="far fa-calendar-alt"></i> Monthly liters & cost (PHP)</span>
     </div>
 
     <!-- Summary Cards -->
@@ -98,8 +98,8 @@
             <div class="stat-sub">all time</div>
         </div>
         <div class="stat-card">
-            <div class="stat-label"><i class="fas fa-dollar-sign"></i> Total Cost</div>
-            <div class="stat-value" id="statCost">$0</div>
+            <div class="stat-label"><i class="fas fa-peso-sign"></i> Total Cost</div>
+            <div class="stat-value" id="statCost">₱0</div>
             <div class="stat-sub">all time</div>
         </div>
         <div class="stat-card">
@@ -115,7 +115,7 @@
             <h2><i class="fas fa-chart-simple"></i> Monthly Fuel Consumption</h2>
             <span style="font-size:0.8rem; color:#4f6f8f;">
                 <i class="fas fa-circle" style="color:#2563eb;"></i> Liters &nbsp;&nbsp;
-                <i class="fas fa-circle" style="color:#f97316;"></i> Cost (USD)
+                <i class="fas fa-circle" style="color:#f97316;"></i> Cost (PHP)
             </span>
         </div>
         <div class="chart-wrapper">
@@ -157,7 +157,7 @@
             <!-- Preview table -->
             <div class="preview-table" id="previewContainer">
                 <table>
-                    <thead><tr><th>Month</th><th>Liters</th><th>Cost (USD)</th></tr></thead>
+                    <thead><tr><th>Month</th><th>Liters</th><th>Cost (PHP)</th></tr></thead>
                     <tbody id="previewBody"><tr><td colspan="3" class="empty-message">Fetch data from CSV link above</td></tr></tbody>
                 </table>
             </div>
@@ -167,6 +167,9 @@
 
 <script>
     (function() {
+        // Register the datalabels plugin globally
+        Chart.register(ChartDataLabels);
+
         // ---- DOM refs ----
         const csvUrlInput = document.getElementById('csvUrlInput');
         const fetchBtn = document.getElementById('fetchBtn');
@@ -218,10 +221,6 @@
             if (!str || str.trim() === '') return NaN;
             let cleaned = str.trim();
             // Remove thousand separators (commas) but keep decimal points
-            // If it has a comma and a dot, the comma is a thousand separator
-            // If it has only commas, treat as thousand separator
-            // If it has a comma as decimal (European), we need to handle differently
-            // For now, assume US format: commas are thousand separators
             cleaned = cleaned.replace(/,/g, '');
             // Remove any currency symbols or extra characters
             cleaned = cleaned.replace(/[^0-9.\-]/g, '');
@@ -264,7 +263,6 @@
                 
                 if (!isNaN(val) && val > 0) {
                     liters.push(val);
-                    // Try to find cost in row 103
                     costs.push(val); // fallback
                 } else {
                     liters.push(0);
@@ -297,6 +295,11 @@
             return { liters, costs };
         }
 
+        // ---- format number with commas ----
+        function formatNumber(num, decimals = 1) {
+            return num.toFixed(decimals).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+        }
+
         // ---- update dashboard ----
         function updateDashboard(litersArr, costArr) {
             const maxLen = Math.min(12, Math.max(litersArr.length, costArr.length));
@@ -321,7 +324,7 @@
                 rowCountSpan.textContent = '0 months';
                 statMonths.textContent = '0';
                 statLiters.textContent = '0.0';
-                statCost.textContent = '$0';
+                statCost.textContent = '₱0';
                 statAvgLiters.textContent = '0.0';
                 if (fuelChart) { fuelChart.destroy(); fuelChart = null; }
                 return;
@@ -329,8 +332,8 @@
 
             months.forEach((m, idx) => {
                 const tr = document.createElement('tr');
-                const costDisplay = costs[idx] > 0 ? `$${costs[idx].toFixed(2)}` : '—';
-                tr.innerHTML = `<td><span class="month-tag">${m}</span></td><td>${liters[idx].toFixed(1)}</td><td>${costDisplay}</td>`;
+                const costDisplay = costs[idx] > 0 ? `₱${formatNumber(costs[idx], 2)}` : '—';
+                tr.innerHTML = `<td><span class="month-tag">${m}</span></td><td>${formatNumber(liters[idx], 1)}</td><td>${costDisplay}</td>`;
                 previewBody.appendChild(tr);
             });
             rowCountSpan.textContent = `${months.length} months`;
@@ -340,14 +343,74 @@
             const avgLiters = totalLiters / months.length;
 
             statMonths.textContent = months.length;
-            statLiters.textContent = totalLiters.toFixed(1);
-            statCost.textContent = `$${totalCost.toFixed(2)}`;
-            statAvgLiters.textContent = avgLiters.toFixed(1);
+            statLiters.textContent = formatNumber(totalLiters, 1);
+            statCost.textContent = `₱${formatNumber(totalCost, 2)}`;
+            statAvgLiters.textContent = formatNumber(avgLiters, 1);
 
             // chart
             if (fuelChart) { fuelChart.destroy(); fuelChart = null; }
 
             const ctx = document.getElementById('fuelChart').getContext('2d');
+            
+            // Custom plugin for data labels positioning
+            const dataLabelsPlugin = {
+                id: 'customDataLabels',
+                afterDraw(chart) {
+                    const { ctx, data, chartArea: { top, bottom, left, right } } = chart;
+                    
+                    data.datasets.forEach((dataset, datasetIndex) => {
+                        const meta = chart.getDatasetMeta(datasetIndex);
+                        const isLiters = datasetIndex === 0;
+                        const offset = isLiters ? -15 : 15; // liters above, cost below
+                        const color = isLiters ? '#2563eb' : '#f97316';
+                        const prefix = isLiters ? '' : '₱';
+                        const decimals = isLiters ? 1 : 2;
+                        
+                        meta.data.forEach((element, index) => {
+                            const value = dataset.data[index];
+                            if (value === 0 || value === null || value === undefined) return;
+                            
+                            const x = element.x;
+                            const y = element.y + offset;
+                            
+                            ctx.save();
+                            ctx.font = 'bold 11px Inter, sans-serif';
+                            ctx.textAlign = 'center';
+                            ctx.textBaseline = 'middle';
+                            
+                            // Background pill
+                            const label = `${prefix}${formatNumber(value, decimals)}`;
+                            const metrics = ctx.measureText(label);
+                            const padding = 6;
+                            const width = metrics.width + padding * 2;
+                            const height = 20;
+                            const rx = 6;
+                            
+                            // Draw background
+                            ctx.shadowColor = 'rgba(0,0,0,0.06)';
+                            ctx.shadowBlur = 4;
+                            ctx.shadowOffsetY = 1;
+                            ctx.fillStyle = isLiters ? '#2563eb' : '#f97316';
+                            ctx.globalAlpha = 0.12;
+                            ctx.beginPath();
+                            ctx.roundRect(x - width/2, y - height/2, width, height, rx);
+                            ctx.fill();
+                            ctx.globalAlpha = 1;
+                            ctx.shadowColor = 'transparent';
+                            
+                            // Draw label
+                            ctx.fillStyle = color;
+                            ctx.font = 'bold 11px Inter, sans-serif';
+                            ctx.textAlign = 'center';
+                            ctx.textBaseline = 'middle';
+                            ctx.fillText(label, x, y + 1);
+                            
+                            ctx.restore();
+                        });
+                    });
+                }
+            };
+
             fuelChart = new Chart(ctx, {
                 type: 'line',
                 data: {
@@ -357,24 +420,36 @@
                             label: 'Liters',
                             data: liters,
                             borderColor: '#2563eb',
-                            backgroundColor: 'rgba(37, 99, 235, 0.05)',
+                            backgroundColor: 'rgba(37, 99, 235, 0.08)',
                             borderWidth: 3,
                             pointBackgroundColor: '#2563eb',
-                            pointRadius: 4,
+                            pointBorderColor: 'white',
+                            pointBorderWidth: 2,
+                            pointRadius: 6,
+                            pointHoverRadius: 8,
                             tension: 0.2,
                             yAxisID: 'yLiters',
+                            datalabels: {
+                                display: false // we use custom plugin
+                            }
                         },
                         {
-                            label: 'Cost (USD)',
+                            label: 'Cost (PHP)',
                             data: costs,
                             borderColor: '#f97316',
-                            backgroundColor: 'rgba(249, 115, 22, 0.05)',
+                            backgroundColor: 'rgba(249, 115, 22, 0.08)',
                             borderWidth: 3,
                             pointBackgroundColor: '#f97316',
-                            pointRadius: 4,
+                            pointBorderColor: 'white',
+                            pointBorderWidth: 2,
+                            pointRadius: 6,
+                            pointHoverRadius: 8,
                             tension: 0.2,
                             yAxisID: 'yCost',
                             hidden: costs.every(c => c === 0),
+                            datalabels: {
+                                display: false // we use custom plugin
+                            }
                         }
                     ]
                 },
@@ -384,7 +459,24 @@
                     interaction: { mode: 'index', intersect: false },
                     plugins: {
                         legend: {
-                            labels: { usePointStyle: true, boxWidth: 8, font: { weight: '500', size: 12 } }
+                            labels: { 
+                                usePointStyle: true, 
+                                boxWidth: 8, 
+                                font: { weight: '500', size: 12 },
+                                padding: 20
+                            }
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    let label = context.dataset.label || '';
+                                    let value = context.parsed.y;
+                                    if (context.datasetIndex === 1) {
+                                        return label + ': ₱' + formatNumber(value, 2);
+                                    }
+                                    return label + ': ' + formatNumber(value, 1) + ' L';
+                                }
+                            }
                         }
                     },
                     scales: {
@@ -393,18 +485,38 @@
                             display: true,
                             position: 'left',
                             grid: { drawOnChartArea: false },
-                            title: { display: true, text: 'Liters', color: '#2563eb', font: { weight: '500' } }
+                            title: {
+                                display: true,
+                                text: 'Liters',
+                                color: '#2563eb',
+                                font: { weight: '500', size: 11 }
+                            },
+                            ticks: {
+                                callback: function(value) {
+                                    return formatNumber(value, 0);
+                                }
+                            }
                         },
                         yCost: {
                             type: 'linear',
                             display: true,
                             position: 'right',
                             grid: { drawOnChartArea: false },
-                            title: { display: true, text: 'Cost (USD)', color: '#f97316', font: { weight: '500' } },
-                            ticks: { callback: function(value) { return '$' + value.toFixed(0); } }
+                            title: {
+                                display: true,
+                                text: 'Cost (PHP)',
+                                color: '#f97316',
+                                font: { weight: '500', size: 11 }
+                            },
+                            ticks: {
+                                callback: function(value) {
+                                    return '₱' + formatNumber(value, 0);
+                                }
+                            }
                         }
                     }
-                }
+                },
+                plugins: [dataLabelsPlugin]
             });
         }
 
@@ -448,7 +560,7 @@
             rowCountSpan.textContent = '0 months';
             statMonths.textContent = '0';
             statLiters.textContent = '0.0';
-            statCost.textContent = '$0';
+            statCost.textContent = '₱0';
             statAvgLiters.textContent = '0.0';
             if (fuelChart) { fuelChart.destroy(); fuelChart = null; }
             statusMsg.className = 'status-msg';

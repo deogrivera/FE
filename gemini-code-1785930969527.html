@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Fixed Expenditure Monitoring - Fuel Consumption Dashboard</title>
+  <!-- Bootstrap 5 CSS -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <!-- PapaParse for CSV parsing -->
+  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+  <style>
+    body { background-color: #f4f6f9; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+    .kpi-card { border: none; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); transition: transform 0.2s; }
+    .kpi-card:hover { transform: translateY(-3px); }
+    .kpi-value { font-size: 1.8rem; font-weight: 700; }
+    .kpi-label { text-transform: uppercase; font-size: 0.75rem; letter-spacing: 0.5px; font-weight: 600; color: #6c757d; }
+    .chart-card { border: none; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
+    .table-container { max-height: 400px; overflow-y: auto; }
+  </style>
+</head>
+<body class="p-3 p-md-4">
+
+  <div class="container-fluid">
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+      <div>
+        <h3 class="fw-bold mb-1">Fixed Expenditure Monitoring</h3>
+        <p class="text-muted mb-0">Fuel Consumption & Fleet Analytics Dashboard</p>
+      </div>
+      <button class="btn btn-outline-primary btn-sm" onclick="loadDashboardData()">
+        🔄 Refresh Data
+      </button>
+    </div>
+
+    <!-- Filters Bar -->
+    <div class="card chart-card mb-4">
+      <div class="card-body py-3">
+        <div class="row g-3 align-items-center">
+          <div class="col-md-3">
+            <label class="form-label small font-weight-bold text-secondary mb-1">Division / Section</label>
+            <select id="filterDivision" class="form-select form-select-sm" onchange="applyFilters()">
+              <option value="ALL">All Divisions / Sections</option>
+            </select>
+          </div>
+          <div class="col-md-3">
+            <label class="form-label small font-weight-bold text-secondary mb-1">Vehicle / Plate No.</label>
+            <select id="filterVehicle" class="form-select form-select-sm" onchange="applyFilters()">
+              <option value="ALL">All Vehicles</option>
+            </select>
+          </div>
+          <div class="col-md-3">
+            <label class="form-label small font-weight-bold text-secondary mb-1">Fuel Type</label>
+            <select id="filterFuelType" class="form-select form-select-sm" onchange="applyFilters()">
+              <option value="ALL">All Fuel Types</option>
+            </select>
+          </div>
+          <div class="col-md-3 text-end">
+            <span id="recordCount" class="badge bg-secondary p-2 mt-3">Loading records...</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- KPI Summary Row -->
+    <div class="row g-3 mb-4">
+      <div class="col-md-3">
+        <div class="card kpi-card p-3 border-start border-primary border-4">
+          <div class="kpi-label">Total Fuel Expenditure</div>
+          <div class="kpi-value text-primary" id="kpiTotalSpend">₱0.00</div>
+        </div>
+      </div>
+      <div class="col-md-3">
+        <div class="card kpi-card p-3 border-start border-success border-4">
+          <div class="kpi-label">Total Volume Consumed</div>
+          <div class="kpi-value text-success" id="kpiTotalLiters">0 L</div>
+        </div>
+      </div>
+      <div class="col-md-3">
+        <div class="card kpi-card p-3 border-start border-warning border-4">
+          <div class="kpi-label">Average Price / Liter</div>
+          <div class="kpi-value text-warning" id="kpiAvgPrice">₱0.00</div>
+        </div>
+      </div>
+      <div class="col-md-3">
+        <div class="card kpi-card p-3 border-start border-info border-4">
+          <div class="kpi-label">Total Refueling Transactions</div>
+          <div class="kpi-value text-info" id="kpiTotalTrips">0</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Charts Row 1 -->
+    <div class="row g-3 mb-4">
+      <div class="col-lg-8">
+        <div class="card chart-card p-3 h-100">
+          <h6 class="fw-bold mb-3">Monthly Fuel Expenditure & Volume Trend</h6>
+          <div style="position: relative; height:320px;">
+            <canvas id="trendChart"></canvas>
+          </div>
+        </div>
+      </div>
+      <div class="col-lg-4">
+        <div class="card chart-card p-3 h-100">
+          <h6 class="fw-bold mb-3">Fuel Spend by Division / Section</h6>
+          <div style="position: relative; height:320px;">
+            <canvas id="divisionChart"></canvas>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Charts Row 2 -->
+    <div class="row g-3 mb-4">
+      <div class="col-lg-7">
+        <div class="card chart-card p-3 h-100">
+          <h6 class="fw-bold mb-3">Top 10 Consuming Vehicles (By Total Cost)</h6>
+          <div style="position: relative; height:300px;">
+            <canvas id="vehicleChart"></canvas>
+          </div>
+        </div>
+      </div>
+      <div class="col-lg-5">
+        <div class="card chart-card p-3 h-100">
+          <h6 class="fw-bold mb-3">Fuel Type Distribution (Diesel vs. Gasoline)</h6>
+          <div style="position: relative; height:300px;">
+            <canvas id="fuelTypeChart"></canvas>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Data Table Row -->
+    <div class="card chart-card mb-4">
+      <div class="card-body">
+        <h6 class="fw-bold mb-3">Recent Refueling Records</h6>
+        <div class="table-container">
+          <table class="table table-hover table-striped align-middle mb-0" id="dataTable">
+            <thead class="table-light sticky-top">
+              <tr id="tableHeader">
+                <th>Date</th>
+                <th>Vehicle / Plate</th>
+                <th>Division / Section</th>
+                <th>Fuel Type</th>
+                <th>Liters</th>
+                <th>Amount (₱)</th>
+              </tr>
+            </thead>
+            <tbody id="tableBody">
+              <tr><td colspan="6" class="text-center py-4">Loading data from Google Sheets...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTvMAlHjMtRJbuReDrIcYbRr93ONSVmvxidycgrFUIQrNh4XTL-4kLPFc62d6qCcA/pub?gid=1892268465&single=true&output=csv';
+
+    let rawData = [];
+    let filteredData = [];
+    let chartInstances = {};
+
+    // Standardized Column Mappings (Fuzzy Match Helper)
+    let colMap = { date: '', vehicle: '', division: '', fuelType: '', liters: '', amount: '' };
+
+    function detectColumns(headers) {
+      headers.forEach(h => {
+        const clean = h.trim().toLowerCase();
+        if (clean.includes('date')) colMap.date = h;
+        else if (clean.includes('plate') || clean.includes('vehicle') || clean.includes('model')) colMap.vehicle = h;
+        else if (clean.includes('section') || clean.includes('division') || clean.includes('office') || clean.includes('project')) colMap.division = h;
+        else if (clean.includes('fuel') || clean.includes('type')) colMap.fuelType = h;
+        else if (clean.includes('liter') || clean.includes('volume') || clean.includes('qty')) colMap.liters = h;
+        else if (clean.includes('amount') || clean.includes('cost') || clean.includes('total') || clean.includes('price')) colMap.amount = h;
+      });
+    }
+
+    function parseNumeric(val) {
+      if (!val) return 0;
+      const clean = String(val).replace(/[^0-9.-]+/g, "");
+      return parseFloat(clean) || 0;
+    }
+
+    function loadDashboardData() {
+      Papa.parse(CSV_URL, {
+        download: true,
+        header: true,
+        skipEmptyLines: true,
+        complete: function(results) {
+          rawData = results.data;
+          if (rawData.length > 0) {
+            detectColumns(Object.keys(rawData[0]));
+            populateFilterDropdowns();
+            applyFilters();
+          }
+        },
+        error: function(err) {
+          console.error("CSV Fetch Error:", err);
+          alert("Error fetching CSV data. Please verify browser CORS or internet access.");
+        }
+      });
+    }
+
+    function populateFilterDropdowns() {
+      const divisions = new Set();
+      const vehicles = new Set();
+      const fuelTypes = new Set();
+
+      rawData.forEach(row => {
+        if (colMap.division && row[colMap.division]) divisions.add(row[colMap.division].trim());
+        if (colMap.vehicle && row[colMap.vehicle]) vehicles.add(row[colMap.vehicle].trim());
+        if (colMap.fuelType && row[colMap.fuelType]) fuelTypes.add(row[colMap.fuelType].trim());
+      });
+
+      fillSelect('filterDivision', Array.from(divisions));
+      fillSelect('filterVehicle', Array.from(vehicles));
+      fillSelect('filterFuelType', Array.from(fuelTypes));
+    }
+
+    function fillSelect(elementId, items) {
+      const select = document.getElementById(elementId);
+      const currentVal = select.value;
+      select.innerHTML = select.options[0].outerHTML; // Keep 'ALL'
+      items.sort().forEach(item => {
+        if(item) {
+          const opt = document.createElement('option');
+          opt.value = item;
+          opt.textContent = item;
+          select.appendChild(opt);
+        }
+      });
+      select.value = currentVal;
+    }
+
+    function applyFilters() {
+      const selDiv = document.getElementById('filterDivision').value;
+      const selVeh = document.getElementById('filterVehicle').value;
+      const selFuel = document.getElementById('filterFuelType').value;
+
+      filteredData = rawData.filter(row => {
+        const matchDiv = (selDiv === 'ALL') || (colMap.division && row[colMap.division]?.trim() === selDiv);
+        const matchVeh = (selVeh === 'ALL') || (colMap.vehicle && row[colMap.vehicle]?.trim() === selVeh);
+        const matchFuel = (selFuel === 'ALL') || (colMap.fuelType && row[colMap.fuelType]?.trim() === selFuel);
+        return matchDiv && matchVeh && matchFuel;
+      });
+
+      document.getElementById('recordCount').textContent = `${filteredData.length} Records Found`;
+
+      updateKPIs();
+      renderCharts();
+      renderTable();
+    }
+
+    function updateKPIs() {
+      let totalSpend = 0;
+      let totalLiters = 0;
+
+      filteredData.forEach(r => {
+        totalSpend += parseNumeric(r[colMap.amount]);
+        totalLiters += parseNumeric(r[colMap.liters]);
+      });
+
+      const avgPrice = totalLiters > 0 ? (totalSpend / totalLiters) : 0;
+
+      document.getElementById('kpiTotalSpend').textContent = `₱${totalSpend.toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2})}`;
+      document.getElementById('kpiTotalLiters').textContent = `${totalLiters.toLocaleString('en-US', {maximumFractionDigits:1})} L`;
+      document.getElementById('kpiAvgPrice').textContent = `₱${avgPrice.toFixed(2)}`;
+      document.getElementById('kpiTotalTrips').textContent = filteredData.length.toLocaleString();
+    }
+
+    function renderCharts() {
+      // 1. Monthly Trend
+      const monthlyMap = {};
+      filteredData.forEach(r => {
+        const rawDate = r[colMap.date] || 'Unknown';
+        const monthKey = rawDate.length >= 7 ? rawDate.substring(0, 7) : 'Other';
+        if (!monthlyMap[monthKey]) monthlyMap[monthKey] = { spend: 0, liters: 0 };
+        monthlyMap[monthKey].spend += parseNumeric(r[colMap.amount]);
+        monthlyMap[monthKey].liters += parseNumeric(r[colMap.liters]);
+      });
+
+      const months = Object.keys(monthlyMap).sort();
+      const spends = months.map(m => monthlyMap[m].spend);
+      const liters = months.map(m => monthlyMap[m].liters);
+
+      drawChart('trendChart', 'bar', {
+        labels: months,
+        datasets: [
+          { label: 'Spend (₱)', data: spends, backgroundColor: '#0d6efd', yAxisID: 'y' },
+          { label: 'Liters', data: liters, borderColor: '#198754', backgroundColor: '#198754', type: 'line', yAxisID: 'y1' }
+        ]
+      }, {
+        scales: {
+          y: { type: 'linear', position: 'left', title: { display: true, text: 'Spend (₱)' } },
+          y1: { type: 'linear', position: 'right', grid: { drawOnChartArea: false }, title: { display: true, text: 'Liters' } }
+        }
+      });
+
+      // 2. Division Breakdown
+      const divMap = {};
+      filteredData.forEach(r => {
+        const div = r[colMap.division] || 'Unassigned';
+        divMap[div] = (divMap[div] || 0) + parseNumeric(r[colMap.amount]);
+      });
+
+      drawChart('divisionChart', 'doughnut', {
+        labels: Object.keys(divMap),
+        datasets: [{
+          data: Object.values(divMap),
+          backgroundColor: ['#0d6efd', '#6f42c1', '#d63384', '#fd7e14', '#ffc107', '#198754', '#20c997', '#0dcaf0']
+        }]
+      });
+
+      // 3. Top Vehicles
+      const vehMap = {};
+      filteredData.forEach(r => {
+        const veh = r[colMap.vehicle] || 'Unknown';
+        vehMap[veh] = (vehMap[veh] || 0) + parseNumeric(r[colMap.amount]);
+      });
+
+      const sortedVehicles = Object.entries(vehMap).sort((a,b) => b[1] - a[1]).slice(0, 10);
+
+      drawChart('vehicleChart', 'bar', {
+        labels: sortedVehicles.map(v => v[0]),
+        datasets: [{
+          label: 'Total Spend (₱)',
+          data: sortedVehicles.map(v => v[1]),
+          backgroundColor: '#0dcaf0'
+        }]
+      }, { indexAxis: 'y' });
+
+      // 4. Fuel Type
+      const fuelMap = {};
+      filteredData.forEach(r => {
+        const ft = r[colMap.fuelType] || 'Standard';
+        fuelMap[ft] = (fuelMap[ft] || 0) + parseNumeric(r[colMap.amount]);
+      });
+
+      drawChart('fuelTypeChart', 'pie', {
+        labels: Object.keys(fuelMap),
+        datasets: [{
+          data: Object.values(fuelMap),
+          backgroundColor: ['#ffc107', '#198754', '#6c757d']
+        }]
+      });
+    }
+
+    function drawChart(canvasId, type, data, extraOptions = {}) {
+      if (chartInstances[canvasId]) {
+        chartInstances[canvasId].destroy();
+      }
+      const ctx = document.getElementById(canvasId).getContext('2d');
+      chartInstances[canvasId] = new Chart(ctx, {
+        type: type,
+        data: data,
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { position: 'top' } },
+          ...extraOptions
+        }
+      });
+    }
+
+    function renderTable() {
+      const tbody = document.getElementById('tableBody');
+      tbody.innerHTML = '';
+
+      if (filteredData.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" class="text-center py-3">No records match filters.</td></tr>';
+        return;
+      }
+
+      // Display top 50 recent rows
+      filteredData.slice(0, 50).forEach(r => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>${r[colMap.date] || '-'}</td>
+          <td class="fw-bold">${r[colMap.vehicle] || '-'}</td>
+          <td>${r[colMap.division] || '-'}</td>
+          <td><span class="badge bg-light text-dark border">${r[colMap.fuelType] || 'Diesel'}</span></td>
+          <td>${parseNumeric(r[colMap.liters]).toFixed(2)} L</td>
+          <td class="fw-bold text-primary">₱${parseNumeric(r[colMap.amount]).toLocaleString('en-US', {minimumFractionDigits:2})}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    // Initialize Dashboard on Page Load
+    window.addEventListener('DOMContentLoaded', loadDashboardData);
+  </script>
+</body>
+</html>

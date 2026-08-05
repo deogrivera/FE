@@ -73,6 +73,11 @@
         .debug-info.show { display: block; }
         .debug-info code { background: #eef2f6; padding: 0.1rem 0.4rem; border-radius: 4px; font-size: 0.75rem; }
 
+        .column-legend { display: flex; flex-wrap: wrap; gap: 0.5rem 1.5rem; font-size: 0.8rem; color: #4b6a8a; margin-top: 0.3rem; }
+        .column-legend span { display: inline-flex; align-items: center; gap: 0.3rem; }
+        .column-legend .liters-col { color: #2563eb; font-weight: 600; }
+        .column-legend .cost-col { color: #f97316; font-weight: 600; }
+
         @media (max-width: 700px) { .data-body { padding: 1rem; } }
     </style>
 </head>
@@ -128,7 +133,7 @@
         <div class="data-header">
             <h3><i class="fas fa-link"></i> CSV Public Link</h3>
             <span style="font-size:0.8rem; color:#5f7d9c;">
-                <i class="fas fa-arrows-left-right"></i> Row 102 · Col F, H, J … AB
+                <i class="fas fa-arrows-left-right"></i> Row 102 · Col F, H, J … AB (Liters) & Col G, I, K … AC (Cost)
             </span>
         </div>
         <div class="data-body">
@@ -138,6 +143,10 @@
                     <input type="text" id="csvUrlInput" placeholder="https://docs.google.com/spreadsheets/d/e/.../pub?output=csv" />
                     <button class="btn btn-primary" id="fetchBtn"><i class="fas fa-cloud-download-alt"></i> Fetch Data</button>
                     <span class="sample-link" id="loadSampleBtn"><i class="fas fa-arrow-right"></i> use sample</span>
+                </div>
+                <div class="column-legend">
+                    <span><i class="fas fa-square" style="color:#2563eb;"></i> Liters: <span class="liters-col">F, H, J, L, N, P, R, T, V, X, Z, AB</span></span>
+                    <span><i class="fas fa-square" style="color:#f97316;"></i> Cost: <span class="cost-col">G, I, K, M, O, Q, S, U, W, Y, AA, AC</span></span>
                 </div>
                 <div id="statusMsg" class="status-msg" style="margin-top:0.4rem;">Paste the public CSV link and click Fetch.</div>
             </div>
@@ -193,8 +202,11 @@
         // ---- month names ----
         const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
-        // ---- column mapping: F=5, H=7, J=9, L=11, N=13, P=15, R=17, T=19, V=21, X=23, Z=25, AB=27 ----
-        const colIndices = [5, 7, 9, 11, 13, 15, 17, 19, 21, 23, 25, 27]; // 0-based index
+        // ---- Column mappings ----
+        // Liters: F=5, H=7, J=9, L=11, N=13, P=15, R=17, T=19, V=21, X=23, Z=25, AB=27
+        const literColIndices = [5, 7, 9, 11, 13, 15, 17, 19, 21, 23, 25, 27];
+        // Cost: G=6, I=8, K=10, M=12, O=14, Q=16, S=18, U=20, W=22, Y=24, AA=26, AC=28
+        const costColIndices = [6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28];
 
         // ---- improved CSV parser that handles quoted fields and thousand separators ----
         function parseCSVRow(row) {
@@ -245,12 +257,13 @@
             const columns = parseCSVRow(targetRow);
             debugLines.push(`Row 102 parsed into ${columns.length} columns`);
             
-            // Extract values from specific columns
+            // Extract liters from F, H, J, L, N, P, R, T, V, X, Z, AB
             const liters = [];
             const costs = [];
             
-            for (let i = 0; i < colIndices.length; i++) {
-                const idx = colIndices[i];
+            // First, extract liters
+            for (let i = 0; i < literColIndices.length; i++) {
+                const idx = literColIndices[i];
                 let val = NaN;
                 let rawVal = '';
                 
@@ -259,35 +272,40 @@
                     val = cleanNumber(rawVal);
                 }
                 
-                debugLines.push(`Col ${String.fromCharCode(65 + idx)} (index ${idx}): raw="${rawVal}" → parsed=${val}`);
+                const colLetter = String.fromCharCode(65 + idx);
+                debugLines.push(`Liters Col ${colLetter} (index ${idx}): raw="${rawVal}" → parsed=${val}`);
                 
                 if (!isNaN(val) && val > 0) {
                     liters.push(val);
-                    costs.push(val); // fallback
                 } else {
                     liters.push(0);
+                }
+            }
+
+            // Then, extract costs from G, I, K, M, O, Q, S, U, W, Y, AA, AC
+            for (let i = 0; i < costColIndices.length; i++) {
+                const idx = costColIndices[i];
+                let val = NaN;
+                let rawVal = '';
+                
+                if (idx < columns.length) {
+                    rawVal = columns[idx];
+                    val = cleanNumber(rawVal);
+                }
+                
+                const colLetter = String.fromCharCode(65 + idx);
+                debugLines.push(`Cost Col ${colLetter} (index ${idx}): raw="${rawVal}" → parsed=${val}`);
+                
+                if (!isNaN(val) && val > 0) {
+                    costs.push(val);
+                } else {
                     costs.push(0);
                 }
             }
 
-            // Try to get cost from row 103 (index 102) if available
-            if (lines.length > 102) {
-                const costRow = lines[102];
-                const costCols = parseCSVRow(costRow);
-                debugLines.push(`Row 103 parsed into ${costCols.length} columns`);
-                
-                for (let i = 0; i < colIndices.length && i < costCols.length; i++) {
-                    const idx = colIndices[i];
-                    if (idx < costCols.length) {
-                        const rawVal = costCols[idx];
-                        const val = cleanNumber(rawVal);
-                        debugLines.push(`Cost Col ${String.fromCharCode(65 + idx)}: raw="${rawVal}" → parsed=${val}`);
-                        if (!isNaN(val) && val > 0) {
-                            costs[i] = val;
-                        }
-                    }
-                }
-            }
+            // Ensure we have the same number of items (should be 12 each)
+            while (liters.length < 12) liters.push(0);
+            while (costs.length < 12) costs.push(0);
 
             // Store debug info
             lastRawData = debugLines;
@@ -297,6 +315,7 @@
 
         // ---- format number with commas ----
         function formatNumber(num, decimals = 1) {
+            if (isNaN(num) || num === 0) return '0';
             return num.toFixed(decimals).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
         }
 
@@ -410,6 +429,20 @@
                     });
                 }
             };
+
+            // Add roundRect polyfill for older browsers
+            if (!CanvasRenderingContext2D.prototype.roundRect) {
+                CanvasRenderingContext2D.prototype.roundRect = function(x, y, w, h, r) {
+                    if (r > w/2) r = w/2;
+                    if (r > h/2) r = h/2;
+                    this.moveTo(x + r, y);
+                    this.arcTo(x + w, y, x + w, y + h, r);
+                    this.arcTo(x + w, y + h, x, y + h, r);
+                    this.arcTo(x, y + h, x, y, r);
+                    this.arcTo(x, y, x + w, y, r);
+                    return this;
+                };
+            }
 
             fuelChart = new Chart(ctx, {
                 type: 'line',

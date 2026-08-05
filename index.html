@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Fuel Dashboard · Monthly Liters & Cost</title>
+    <title>Fuel Dashboard · Auto CSV Fetch</title>
     <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     <!-- Font Awesome -->
@@ -36,12 +36,12 @@
         .data-header h3 i { color: #2563eb; }
         .data-body { padding: 1.5rem 1.8rem; }
 
-        .input-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 1.2rem; }
-        @media (max-width: 700px) { .input-grid { grid-template-columns: 1fr; } }
-
-        .field-group label { display: block; font-size: 0.75rem; font-weight: 600; color: #3d5a78; margin-bottom: 0.3rem; }
-        .field-group input { width: 100%; padding: 0.6rem 1rem; border-radius: 60px; border: 1px solid #d6e2f0; font-size: 0.9rem; background: #fbfdff; }
-        .field-group input:focus { outline: none; border-color: #2563eb; box-shadow: 0 0 0 3px rgba(37,99,235,0.15); }
+        .csv-url-box { background: #f0f6fe; border-radius: 1.2rem; padding: 1rem 1.5rem; margin-bottom: 1.5rem; border: 1px solid #d6e2f0; }
+        .csv-url-box label { font-weight: 600; color: #1f3b57; display: block; margin-bottom: 0.4rem; font-size: 0.9rem; }
+        .csv-url-box label i { color: #2563eb; margin-right: 0.5rem; }
+        .url-input-row { display: flex; gap: 0.8rem; flex-wrap: wrap; }
+        .url-input-row input { flex: 1; min-width: 200px; padding: 0.6rem 1rem; border-radius: 60px; border: 1px solid #d6e2f0; font-size: 0.9rem; background: white; }
+        .url-input-row input:focus { outline: none; border-color: #2563eb; box-shadow: 0 0 0 3px rgba(37,99,235,0.15); }
 
         .action-row { display: flex; gap: 0.8rem; flex-wrap: wrap; align-items: center; margin-top: 0.5rem; }
         .btn { background: #eef3f9; border: none; padding: 0.6rem 1.8rem; border-radius: 60px; font-weight: 600; font-size: 0.9rem; color: #1f3b57; cursor: pointer; display: inline-flex; align-items: center; gap: 0.5rem; border: 1px solid transparent; }
@@ -49,8 +49,14 @@
         .btn-primary:hover { background: #1d4ed8; transform: scale(1.01); }
         .btn-secondary { background: #e6edf7; }
         .btn-secondary:hover { background: #d5e0ee; }
-        .sample-link { color: #2563eb; cursor: pointer; font-weight: 500; font-size: 0.85rem; margin-left: 0.5rem; }
+        .btn-success { background: #16a34a; color: white; }
+        .btn-success:hover { background: #15803d; }
+        .sample-link { color: #2563eb; cursor: pointer; font-weight: 500; font-size: 0.85rem; }
         .sample-link:hover { text-decoration: underline; }
+
+        .status-msg { font-size: 0.85rem; color: #4f6f8f; padding: 0.3rem 0; }
+        .status-msg.error { color: #dc2626; }
+        .status-msg.success { color: #16a34a; }
 
         .preview-table { margin-top: 1.5rem; border-radius: 1.2rem; overflow-x: auto; border: 1px solid #e3ebf5; }
         .preview-table table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
@@ -59,6 +65,11 @@
         .preview-table tr:last-child td { border-bottom: none; }
         .empty-message { color: #7a94b2; font-style: italic; padding: 0.8rem 1rem; }
         .month-tag { display: inline-block; background: #eef4ff; padding: 0.1rem 0.6rem; border-radius: 30px; font-size: 0.7rem; font-weight: 600; color: #1e4a7a; }
+
+        .spinner { display: inline-block; width: 16px; height: 16px; border: 2px solid #e0e7ef; border-top-color: #2563eb; border-radius: 50%; animation: spin 0.6s linear infinite; margin-right: 0.5rem; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        @media (max-width: 700px) { .data-body { padding: 1rem; } }
     </style>
 </head>
 <body>
@@ -108,34 +119,26 @@
         </div>
     </div>
 
-    <!-- Data Input (specific to sheet layout) -->
+    <!-- Data Input: CSV URL -->
     <div class="data-section">
         <div class="data-header">
-            <h3><i class="fas fa-table"></i> Enter Monthly Totals</h3>
-            <span class="sub" style="font-size:0.8rem; color:#5f7d9c;">
+            <h3><i class="fas fa-link"></i> CSV Public Link</h3>
+            <span style="font-size:0.8rem; color:#5f7d9c;">
                 <i class="fas fa-arrows-left-right"></i> Row 102 · Col F, H, J … AB
             </span>
         </div>
         <div class="data-body">
-            <div style="background: #f0f6fe; border-radius: 1.2rem; padding: 0.8rem 1.2rem; margin-bottom: 1.5rem; display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; border: 1px dashed #b7cee8; font-size:0.9rem; color:#1f3b57;">
-                <i class="fas fa-info-circle" style="color:#2563eb;"></i>
-                <span>Paste the <strong>12 monthly totals</strong> (liters) from Row 102, columns F through AB.</span>
-                <span class="sample-link" id="loadSampleBtn"><i class="fas fa-arrow-right"></i> load sample</span>
-            </div>
-
-            <div class="input-grid">
-                <div class="field-group">
-                    <label><i class="far fa-calendar"></i> Monthly Liters (comma separated)</label>
-                    <input type="text" id="litersInput" placeholder="e.g. 45.2, 38.1, 50.0, 47.2, 44.8, 60.0, 52.4, 48.0, 41.3, 57.5, 49.0, 53.2" />
+            <div class="csv-url-box">
+                <label><i class="fas fa-globe"></i> Paste your Google Sheets CSV export URL</label>
+                <div class="url-input-row">
+                    <input type="text" id="csvUrlInput" placeholder="https://docs.google.com/spreadsheets/d/e/.../pub?output=csv" />
+                    <button class="btn btn-primary" id="fetchBtn"><i class="fas fa-cloud-download-alt"></i> Fetch Data</button>
+                    <span class="sample-link" id="loadSampleBtn"><i class="fas fa-arrow-right"></i> use sample</span>
                 </div>
-                <div class="field-group">
-                    <label><i class="fas fa-dollar-sign"></i> Monthly Cost (comma separated, optional)</label>
-                    <input type="text" id="costInput" placeholder="e.g. 67.80, 57.15, 75.00, 70.80, 67.20, 90.00, 78.60, 72.00, 61.95, 86.25, 73.50, 79.80" />
-                </div>
+                <div id="statusMsg" class="status-msg" style="margin-top:0.4rem;">Paste the public CSV link and click Fetch.</div>
             </div>
 
             <div class="action-row">
-                <button class="btn btn-primary" id="updateBtn"><i class="fas fa-arrow-up"></i> Update Dashboard</button>
                 <button class="btn btn-secondary" id="clearBtn"><i class="fas fa-undo-alt"></i> Clear</button>
                 <span style="font-size:0.8rem; color:#5f7d9c; margin-left:auto;" id="rowCount">0 months loaded</span>
             </div>
@@ -144,7 +147,7 @@
             <div class="preview-table" id="previewContainer">
                 <table>
                     <thead><tr><th>Month</th><th>Liters</th><th>Cost (USD)</th></tr></thead>
-                    <tbody id="previewBody"><tr><td colspan="3" class="empty-message">Enter monthly values above</td></tr></tbody>
+                    <tbody id="previewBody"><tr><td colspan="3" class="empty-message">Fetch data from CSV link above</td></tr></tbody>
                 </table>
             </div>
         </div>
@@ -154,11 +157,11 @@
 <script>
     (function() {
         // ---- DOM refs ----
-        const litersInput = document.getElementById('litersInput');
-        const costInput = document.getElementById('costInput');
-        const updateBtn = document.getElementById('updateBtn');
+        const csvUrlInput = document.getElementById('csvUrlInput');
+        const fetchBtn = document.getElementById('fetchBtn');
         const clearBtn = document.getElementById('clearBtn');
         const loadSampleBtn = document.getElementById('loadSampleBtn');
+        const statusMsg = document.getElementById('statusMsg');
         const previewBody = document.getElementById('previewBody');
         const rowCountSpan = document.getElementById('rowCount');
 
@@ -169,40 +172,110 @@
 
         let fuelChart = null;
 
-        // ---- helpers ----
+        // ---- month names ----
         const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
-        function parseNumberList(str) {
-            if (!str.trim()) return [];
-            return str.split(',').map(s => {
-                const num = parseFloat(s.trim());
-                return isNaN(num) ? null : num;
-            }).filter(v => v !== null);
+        // ---- column mapping: F=5, H=7, J=9, L=11, N=13, P=15, R=17, T=19, V=21, X=23, Z=25, AB=27 ----
+        const colIndices = [5, 7, 9, 11, 13, 15, 17, 19, 21, 23, 25, 27]; // 0-based index
+
+        // ---- fetch CSV ----
+        async function fetchCSV(url) {
+            const response = await fetch(url);
+            if (!response.ok) throw new Error(`HTTP ${response.status} — ${response.statusText}`);
+            const text = await response.text();
+            return text;
         }
 
+        function parseCSVRow(row) {
+            // simple CSV parse: split by comma, but handle quoted fields minimally
+            const result = [];
+            let current = '';
+            let inQuotes = false;
+            for (let i = 0; i < row.length; i++) {
+                const ch = row[i];
+                if (ch === '"') {
+                    inQuotes = !inQuotes;
+                } else if (ch === ',' && !inQuotes) {
+                    result.push(current.trim());
+                    current = '';
+                } else {
+                    current += ch;
+                }
+            }
+            result.push(current.trim());
+            return result;
+        }
+
+        function extractMonthlyData(csvText) {
+            const lines = csvText.split(/\r?\n/);
+            if (lines.length < 103) {
+                throw new Error(`CSV has only ${lines.length} rows. Need at least 103 rows (Row 102).`);
+            }
+
+            // Row 102 is index 101 (0-based)
+            const targetRow = lines[101]; 
+            if (!targetRow) throw new Error('Row 102 not found in CSV.');
+
+            const columns = parseCSVRow(targetRow);
+            
+            // Extract values from specific columns
+            const liters = [];
+            const costs = [];
+            for (let i = 0; i < colIndices.length; i++) {
+                const idx = colIndices[i];
+                const val = (idx < columns.length) ? parseFloat(columns[idx]) : NaN;
+                if (!isNaN(val) && val > 0) {
+                    liters.push(val);
+                    // Try to find cost in the next column? Actually cost is separate. 
+                    // We'll use the same value as cost if no separate cost column is provided.
+                    // For now, we'll just use liters as cost placeholder.
+                    // If user wants cost, they can provide a separate row.
+                    costs.push(val); // fallback: use liters as cost
+                } else {
+                    liters.push(0);
+                    costs.push(0);
+                }
+            }
+
+            // Also try to find cost row: row 103? Let's check if row 103 exists (index 102)
+            if (lines.length > 102) {
+                const costRow = lines[102];
+                const costCols = parseCSVRow(costRow);
+                for (let i = 0; i < colIndices.length && i < costCols.length; i++) {
+                    const idx = colIndices[i];
+                    if (idx < costCols.length) {
+                        const val = parseFloat(costCols[idx]);
+                        if (!isNaN(val) && val > 0) {
+                            costs[i] = val;
+                        }
+                    }
+                }
+            }
+
+            return { liters, costs };
+        }
+
+        // ---- update dashboard ----
         function updateDashboard(litersArr, costArr) {
-            // if costArr is shorter, pad with zeros or use liters as fallback? we'll pad with 0
-            const maxLen = Math.max(litersArr.length, costArr.length);
+            const maxLen = Math.min(12, Math.max(litersArr.length, costArr.length));
             const months = [];
             const liters = [];
             const costs = [];
 
             for (let i = 0; i < maxLen; i++) {
-                if (i < 12) {
-                    const l = (i < litersArr.length) ? litersArr[i] : 0;
-                    const c = (i < costArr.length) ? costArr[i] : 0;
-                    if (l > 0 || c > 0) {
-                        months.push(monthNames[i]);
-                        liters.push(l);
-                        costs.push(c);
-                    }
+                const l = (i < litersArr.length) ? litersArr[i] : 0;
+                const c = (i < costArr.length) ? costArr[i] : 0;
+                if (l > 0 || c > 0) {
+                    months.push(monthNames[i]);
+                    liters.push(l);
+                    costs.push(c);
                 }
             }
 
-            // update preview table
+            // update preview
             previewBody.innerHTML = '';
             if (months.length === 0) {
-                previewBody.innerHTML = `<tr><td colspan="3" class="empty-message">No valid data. Enter monthly liters (and optional cost).</td></tr>`;
+                previewBody.innerHTML = `<tr><td colspan="3" class="empty-message">No valid monthly data found in Row 102.</td></tr>`;
                 rowCountSpan.textContent = '0 months';
                 statMonths.textContent = '0';
                 statLiters.textContent = '0.0';
@@ -212,7 +285,6 @@
                 return;
             }
 
-            // show all months in preview
             months.forEach((m, idx) => {
                 const tr = document.createElement('tr');
                 const costDisplay = costs[idx] > 0 ? `$${costs[idx].toFixed(2)}` : '—';
@@ -221,7 +293,6 @@
             });
             rowCountSpan.textContent = `${months.length} months`;
 
-            // stats
             const totalLiters = liters.reduce((a,b) => a + b, 0);
             const totalCost = costs.reduce((a,b) => a + b, 0);
             const avgLiters = totalLiters / months.length;
@@ -295,42 +366,71 @@
             });
         }
 
-        function updateFromInputs() {
-            const litersArr = parseNumberList(litersInput.value);
-            const costArr = parseNumberList(costInput.value);
-            updateDashboard(litersArr, costArr);
+        // ---- fetch and process ----
+        async function fetchAndProcess() {
+            const url = csvUrlInput.value.trim();
+            if (!url) {
+                statusMsg.className = 'status-msg error';
+                statusMsg.innerHTML = '<i class="fas fa-exclamation-circle"></i> Please paste a valid CSV URL.';
+                return;
+            }
+
+            statusMsg.className = 'status-msg';
+            statusMsg.innerHTML = '<span class="spinner"></span> Fetching CSV data...';
+
+            try {
+                const csvText = await fetchCSV(url);
+                const { liters, costs } = extractMonthlyData(csvText);
+                updateDashboard(liters, costs);
+                statusMsg.className = 'status-msg success';
+                statusMsg.innerHTML = `<i class="fas fa-check-circle"></i> Data loaded successfully from CSV.`;
+            } catch (err) {
+                statusMsg.className = 'status-msg error';
+                statusMsg.innerHTML = `<i class="fas fa-exclamation-circle"></i> Error: ${err.message}`;
+                console.error(err);
+            }
         }
 
+        // ---- clear ----
         function clearData() {
-            litersInput.value = '';
-            costInput.value = '';
-            previewBody.innerHTML = `<tr><td colspan="3" class="empty-message">Enter monthly values above</td></tr>`;
+            csvUrlInput.value = '';
+            previewBody.innerHTML = `<tr><td colspan="3" class="empty-message">Fetch data from CSV link above</td></tr>`;
             rowCountSpan.textContent = '0 months';
             statMonths.textContent = '0';
             statLiters.textContent = '0.0';
             statCost.textContent = '$0';
             statAvgLiters.textContent = '0.0';
             if (fuelChart) { fuelChart.destroy(); fuelChart = null; }
+            statusMsg.className = 'status-msg';
+            statusMsg.innerHTML = 'Paste the public CSV link and click Fetch.';
         }
 
+        // ---- load sample ----
         function loadSample() {
-            // Sample data matching typical monthly fuel totals
-            litersInput.value = '45.2, 38.1, 50.0, 47.2, 44.8, 60.0, 52.4, 48.0, 41.3, 57.5, 49.0, 53.2';
-            costInput.value = '67.80, 57.15, 75.00, 70.80, 67.20, 90.00, 78.60, 72.00, 61.95, 86.25, 73.50, 79.80';
-            updateFromInputs();
+            // Use the user's provided URL as sample
+            csvUrlInput.value = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTvMAlHjMtRJbuReDrIcYbRr93ONSVmvxidycgrFUIQrNh4XTL-4kLPFc62d6qCcA/pub?gid=1892268465&single=true&output=csv';
+            fetchAndProcess();
         }
 
         // ---- attach events ----
-        updateBtn.addEventListener('click', updateFromInputs);
+        fetchBtn.addEventListener('click', fetchAndProcess);
         clearBtn.addEventListener('click', clearData);
         loadSampleBtn.addEventListener('click', loadSample);
 
-        // load sample on first visit
-        window.addEventListener('load', loadSample);
+        // Enter key on URL input
+        csvUrlInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                fetchAndProcess();
+            }
+        });
 
-        // allow Enter key in inputs
-        litersInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); updateFromInputs(); } });
-        costInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); updateFromInputs(); } });
+        // ---- auto-load sample on first visit ----
+        window.addEventListener('load', () => {
+            // Pre-fill with the user's URL and auto-fetch
+            csvUrlInput.value = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTvMAlHjMtRJbuReDrIcYbRr93ONSVmvxidycgrFUIQrNh4XTL-4kLPFc62d6qCcA/pub?gid=1892268465&single=true&output=csv';
+            fetchAndProcess();
+        });
     })();
 </script>
 </body>

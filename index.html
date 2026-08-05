@@ -26,11 +26,18 @@
         .stat-value { font-size: 1.9rem; font-weight: 700; color: #0b2a41; margin-top: 0.15rem; }
         .stat-sub { font-size: 0.8rem; color: #4f6f8f; margin-top: 0.1rem; }
 
-        .chart-container { background: white; border-radius: 2rem; padding: 1.8rem; border: 1px solid #e3ebf5; margin-bottom: 2rem; box-shadow: 0 8px 20px -12px rgba(0,20,30,0.06); }
+        .chart-container { 
+            background: white; 
+            border-radius: 2rem; 
+            padding: 1.8rem; 
+            border: 1px solid #e3ebf5; 
+            box-shadow: 0 8px 20px -12px rgba(0,20,30,0.06);
+            margin-bottom: 2rem;
+        }
         .chart-header { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; margin-bottom: 0.5rem; }
         .chart-header h2 { font-size: 1.2rem; font-weight: 600; color: #1a3652; display: flex; align-items: center; gap: 0.5rem; }
         .chart-header h2 i { color: #2563eb; }
-        .chart-wrapper { position: relative; height: 280px; margin-top: 0.5rem; }
+        .chart-wrapper { position: relative; height: 300px; margin-top: 0.5rem; }
 
         .data-section { background: white; border-radius: 2rem; border: 1px solid #e3ebf5; overflow: hidden; }
         .data-header { background: #f9fcff; padding: 1rem 1.8rem; border-bottom: 1px solid #e3ebf5; display: flex; justify-content: space-between; flex-wrap: wrap; align-items: center; }
@@ -81,11 +88,10 @@
 
         .ratio-badge { display: inline-block; background: #f0fdf4; padding: 0.2rem 0.8rem; border-radius: 30px; font-size: 0.7rem; font-weight: 600; color: #16a34a; border: 1px solid #bbf7d0; }
 
-        .chart-row { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 2rem; }
-        .chart-row .chart-container { margin-bottom: 0; }
-        @media (max-width: 900px) { .chart-row { grid-template-columns: 1fr; } }
-
-        @media (max-width: 700px) { .data-body { padding: 1rem; } }
+        @media (max-width: 700px) { 
+            .data-body { padding: 1rem; }
+            .chart-wrapper { height: 250px; }
+        }
     </style>
 </head>
 <body>
@@ -126,33 +132,30 @@
         </div>
     </div>
 
-    <!-- Two Column Charts: Fuel Consumption (left) + Fleet Cards (right) -->
-    <div class="chart-row">
-        <!-- Fuel Consumption Chart -->
-        <div class="chart-container">
-            <div class="chart-header">
-                <h2><i class="fas fa-chart-line"></i> Fuel Consumption</h2>
-                <span style="font-size:0.8rem; color:#4f6f8f;">
-                    <i class="fas fa-circle" style="color:#2563eb;"></i> Liters &nbsp;&nbsp;
-                    <i class="fas fa-circle" style="color:#f97316;"></i> Cost (PHP)
-                </span>
-            </div>
-            <div class="chart-wrapper">
-                <canvas id="fuelChart"></canvas>
-            </div>
+    <!-- Chart 1: Fuel Consumption -->
+    <div class="chart-container">
+        <div class="chart-header">
+            <h2><i class="fas fa-chart-line"></i> Fuel Consumption</h2>
+            <span style="font-size:0.8rem; color:#4f6f8f;">
+                <i class="fas fa-circle" style="color:#2563eb;"></i> Liters &nbsp;&nbsp;
+                <i class="fas fa-circle" style="color:#f97316;"></i> Cost (PHP)
+            </span>
         </div>
+        <div class="chart-wrapper">
+            <canvas id="fuelChart"></canvas>
+        </div>
+    </div>
 
-        <!-- Fleet Cards Chart -->
-        <div class="chart-container">
-            <div class="chart-header">
-                <h2><i class="fas fa-credit-card"></i> Fleet Cards Used</h2>
-                <span style="font-size:0.8rem; color:#4f6f8f;">
-                    <i class="fas fa-square" style="color:#22c55e;"></i> Number of Cards
-                </span>
-            </div>
-            <div class="chart-wrapper">
-                <canvas id="fleetChart"></canvas>
-            </div>
+    <!-- Chart 2: Fleet Cards -->
+    <div class="chart-container">
+        <div class="chart-header">
+            <h2><i class="fas fa-credit-card"></i> Fleet Cards Used</h2>
+            <span style="font-size:0.8rem; color:#4f6f8f;">
+                <i class="fas fa-square" style="color:#22c55e;"></i> Number of Cards
+            </span>
+        </div>
+        <div class="chart-wrapper">
+            <canvas id="fleetChart"></canvas>
         </div>
     </div>
 
@@ -287,7 +290,7 @@
             const debugLines = [];
             
             // Need at least Row 116 (index 115)
-            if (lines.length < 116) {
+            if (lines.length < 117) {
                 throw new Error(`CSV has only ${lines.length} rows. Need at least 117 rows (Row 116).`);
             }
 

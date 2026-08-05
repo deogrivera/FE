@@ -30,7 +30,7 @@
         .chart-header { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; margin-bottom: 0.5rem; }
         .chart-header h2 { font-size: 1.2rem; font-weight: 600; color: #1a3652; display: flex; align-items: center; gap: 0.5rem; }
         .chart-header h2 i { color: #2563eb; }
-        .chart-wrapper { position: relative; height: 360px; margin-top: 0.5rem; }
+        .chart-wrapper { position: relative; height: 280px; margin-top: 0.5rem; }
 
         .data-section { background: white; border-radius: 2rem; border: 1px solid #e3ebf5; overflow: hidden; }
         .data-header { background: #f9fcff; padding: 1rem 1.8rem; border-bottom: 1px solid #e3ebf5; display: flex; justify-content: space-between; flex-wrap: wrap; align-items: center; }
@@ -51,8 +51,6 @@
         .btn-primary:hover { background: #1d4ed8; transform: scale(1.01); }
         .btn-secondary { background: #e6edf7; }
         .btn-secondary:hover { background: #d5e0ee; }
-        .btn-success { background: #16a34a; color: white; }
-        .btn-success:hover { background: #15803d; }
         .sample-link { color: #2563eb; cursor: pointer; font-weight: 500; font-size: 0.85rem; }
         .sample-link:hover { text-decoration: underline; }
 
@@ -82,6 +80,10 @@
         .column-legend .fleet-col { color: #22c55e; font-weight: 600; }
 
         .ratio-badge { display: inline-block; background: #f0fdf4; padding: 0.2rem 0.8rem; border-radius: 30px; font-size: 0.7rem; font-weight: 600; color: #16a34a; border: 1px solid #bbf7d0; }
+
+        .chart-row { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 2rem; }
+        .chart-row .chart-container { margin-bottom: 0; }
+        @media (max-width: 900px) { .chart-row { grid-template-columns: 1fr; } }
 
         @media (max-width: 700px) { .data-body { padding: 1rem; } }
     </style>
@@ -124,18 +126,33 @@
         </div>
     </div>
 
-    <!-- Line Chart -->
-    <div class="chart-container">
-        <div class="chart-header">
-            <h2><i class="fas fa-chart-simple"></i> Monthly Fuel Consumption & Fleet Cards</h2>
-            <span style="font-size:0.8rem; color:#4f6f8f;">
-                <i class="fas fa-circle" style="color:#2563eb;"></i> Liters &nbsp;&nbsp;
-                <i class="fas fa-circle" style="color:#f97316;"></i> Cost (PHP) &nbsp;&nbsp;
-                <i class="fas fa-square" style="color:#22c55e;"></i> Fleet Cards
-            </span>
+    <!-- Two Column Charts: Fuel Consumption (left) + Fleet Cards (right) -->
+    <div class="chart-row">
+        <!-- Fuel Consumption Chart -->
+        <div class="chart-container">
+            <div class="chart-header">
+                <h2><i class="fas fa-chart-line"></i> Fuel Consumption</h2>
+                <span style="font-size:0.8rem; color:#4f6f8f;">
+                    <i class="fas fa-circle" style="color:#2563eb;"></i> Liters &nbsp;&nbsp;
+                    <i class="fas fa-circle" style="color:#f97316;"></i> Cost (PHP)
+                </span>
+            </div>
+            <div class="chart-wrapper">
+                <canvas id="fuelChart"></canvas>
+            </div>
         </div>
-        <div class="chart-wrapper">
-            <canvas id="fuelChart"></canvas>
+
+        <!-- Fleet Cards Chart -->
+        <div class="chart-container">
+            <div class="chart-header">
+                <h2><i class="fas fa-credit-card"></i> Fleet Cards Used</h2>
+                <span style="font-size:0.8rem; color:#4f6f8f;">
+                    <i class="fas fa-square" style="color:#22c55e;"></i> Number of Cards
+                </span>
+            </div>
+            <div class="chart-wrapper">
+                <canvas id="fleetChart"></canvas>
+            </div>
         </div>
     </div>
 
@@ -210,6 +227,7 @@
         const statRatio = document.getElementById('statRatio');
 
         let fuelChart = null;
+        let fleetChart = null;
         let lastRawData = null;
 
         // ---- month names ----
@@ -269,7 +287,7 @@
             const debugLines = [];
             
             // Need at least Row 116 (index 115)
-            if (lines.length < 116) {
+            if (lines.length < 117) {
                 throw new Error(`CSV has only ${lines.length} rows. Need at least 117 rows (Row 116).`);
             }
 
@@ -406,6 +424,7 @@
                 statFleetCards.textContent = '0';
                 statRatio.textContent = '0.0';
                 if (fuelChart) { fuelChart.destroy(); fuelChart = null; }
+                if (fleetChart) { fleetChart.destroy(); fleetChart = null; }
                 return;
             }
 
@@ -437,107 +456,11 @@
             statFleetCards.textContent = totalFleet;
             statRatio.textContent = ratio.toFixed(1);
 
-            // chart
+            // ---- Create Fuel Chart (Liters + Cost) ----
             if (fuelChart) { fuelChart.destroy(); fuelChart = null; }
-
-            const ctx = document.getElementById('fuelChart').getContext('2d');
+            const ctx1 = document.getElementById('fuelChart').getContext('2d');
             
-            // Custom plugin for data labels positioning
-            const dataLabelsPlugin = {
-                id: 'customDataLabels',
-                afterDraw(chart) {
-                    const { ctx, data, chartArea: { top, bottom, left, right } } = chart;
-                    
-                    data.datasets.forEach((dataset, datasetIndex) => {
-                        const meta = chart.getDatasetMeta(datasetIndex);
-                        const isLiters = datasetIndex === 0;
-                        const isCost = datasetIndex === 1;
-                        const isFleet = datasetIndex === 2;
-                        
-                        let offset = 0;
-                        let color = '#2563eb';
-                        let prefix = '';
-                        let decimals = 1;
-                        
-                        if (isLiters) {
-                            offset = -18;
-                            color = '#2563eb';
-                            prefix = '';
-                            decimals = 1;
-                        } else if (isCost) {
-                            offset = 18;
-                            color = '#f97316';
-                            prefix = '₱';
-                            decimals = 2;
-                        } else if (isFleet) {
-                            offset = -30;
-                            color = '#22c55e';
-                            prefix = '';
-                            decimals = 0;
-                        }
-                        
-                        meta.data.forEach((element, index) => {
-                            const value = dataset.data[index];
-                            if (value === 0 || value === null || value === undefined) return;
-                            
-                            // Only show labels for liters and cost, fleet cards are shown as bars
-                            if (isFleet) return;
-                            
-                            const x = element.x;
-                            const y = element.y + offset;
-                            
-                            ctx.save();
-                            ctx.font = 'bold 11px Inter, sans-serif';
-                            ctx.textAlign = 'center';
-                            ctx.textBaseline = 'middle';
-                            
-                            const label = `${prefix}${formatNumber(value, decimals)}`;
-                            const metrics = ctx.measureText(label);
-                            const padding = 6;
-                            const width = metrics.width + padding * 2;
-                            const height = 20;
-                            const rx = 6;
-                            
-                            ctx.shadowColor = 'rgba(0,0,0,0.06)';
-                            ctx.shadowBlur = 4;
-                            ctx.shadowOffsetY = 1;
-                            ctx.fillStyle = color;
-                            ctx.globalAlpha = 0.12;
-                            ctx.beginPath();
-                            ctx.roundRect(x - width/2, y - height/2, width, height, rx);
-                            ctx.fill();
-                            ctx.globalAlpha = 1;
-                            ctx.shadowColor = 'transparent';
-                            
-                            ctx.fillStyle = color;
-                            ctx.font = 'bold 11px Inter, sans-serif';
-                            ctx.textAlign = 'center';
-                            ctx.textBaseline = 'middle';
-                            ctx.fillText(label, x, y + 1);
-                            
-                            ctx.restore();
-                        });
-                    });
-                }
-            };
-
-            // Add roundRect polyfill for older browsers
-            if (!CanvasRenderingContext2D.prototype.roundRect) {
-                CanvasRenderingContext2D.prototype.roundRect = function(x, y, w, h, r) {
-                    if (r > w/2) r = w/2;
-                    if (r > h/2) r = h/2;
-                    this.moveTo(x + r, y);
-                    this.arcTo(x + w, y, x + w, y + h, r);
-                    this.arcTo(x + w, y + h, x, y + h, r);
-                    this.arcTo(x, y + h, x, y, r);
-                    this.arcTo(x, y, x + w, y, r);
-                    return this;
-                };
-            }
-
-            const hasFleetData = fleet.some(f => f > 0);
-
-            fuelChart = new Chart(ctx, {
+            fuelChart = new Chart(ctx1, {
                 type: 'line',
                 data: {
                     labels: months,
@@ -555,7 +478,6 @@
                             pointHoverRadius: 8,
                             tension: 0.2,
                             yAxisID: 'yLiters',
-                            order: 1,
                         },
                         {
                             label: 'Cost (PHP)',
@@ -571,22 +493,6 @@
                             tension: 0.2,
                             yAxisID: 'yCost',
                             hidden: costs.every(c => c === 0),
-                            order: 1,
-                        },
-                        {
-                            label: 'Fleet Cards',
-                            data: fleet,
-                            type: 'bar',
-                            backgroundColor: 'rgba(34, 197, 94, 0.5)',
-                            borderColor: '#22c55e',
-                            borderWidth: 2,
-                            borderRadius: 4,
-                            yAxisID: 'yFleet',
-                            hidden: !hasFleetData,
-                            order: 0,
-                            datalabels: {
-                                display: false
-                            }
                         }
                     ]
                 },
@@ -610,12 +516,38 @@
                                     let value = context.parsed.y;
                                     if (context.datasetIndex === 1) {
                                         return label + ': ₱' + formatNumber(value, 2);
-                                    } else if (context.datasetIndex === 2) {
-                                        return label + ': ' + Math.round(value);
                                     }
                                     return label + ': ' + formatNumber(value, 1) + ' L';
                                 }
                             }
+                        },
+                        datalabels: {
+                            display: function(context) {
+                                return context.datasetIndex === 0 || context.datasetIndex === 1;
+                            },
+                            color: function(context) {
+                                return context.datasetIndex === 0 ? '#2563eb' : '#f97316';
+                            },
+                            font: { weight: 'bold', size: 10 },
+                            anchor: function(context) {
+                                return context.datasetIndex === 0 ? 'end' : 'start';
+                            },
+                            align: function(context) {
+                                return context.datasetIndex === 0 ? 'top' : 'bottom';
+                            },
+                            offset: 4,
+                            formatter: function(value, context) {
+                                if (context.datasetIndex === 0) {
+                                    return formatNumber(value, 1);
+                                } else {
+                                    return '₱' + formatNumber(value, 2);
+                                }
+                            },
+                            backgroundColor: function(context) {
+                                return context.datasetIndex === 0 ? 'rgba(37,99,235,0.1)' : 'rgba(249,115,22,0.1)';
+                            },
+                            borderRadius: 4,
+                            padding: { top: 2, bottom: 2, left: 6, right: 6 }
                         }
                     },
                     scales: {
@@ -651,32 +583,88 @@
                                 callback: function(value) {
                                     return '₱' + formatNumber(value, 0);
                                 }
-                            },
-                            position: 'right'
+                            }
+                        }
+                    }
+                }
+            });
+
+            // ---- Create Fleet Chart (Fleet Cards as Bar Chart) ----
+            if (fleetChart) { fleetChart.destroy(); fleetChart = null; }
+            const ctx2 = document.getElementById('fleetChart').getContext('2d');
+            
+            const hasFleetData = fleet.some(f => f > 0);
+            
+            fleetChart = new Chart(ctx2, {
+                type: 'bar',
+                data: {
+                    labels: months,
+                    datasets: [
+                        {
+                            label: 'Fleet Cards Used',
+                            data: fleet,
+                            backgroundColor: 'rgba(34, 197, 94, 0.7)',
+                            borderColor: '#22c55e',
+                            borderWidth: 2,
+                            borderRadius: 6,
+                            barPercentage: 0.6,
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            labels: { 
+                                usePointStyle: true, 
+                                boxWidth: 8, 
+                                font: { weight: '500', size: 12 },
+                                padding: 20
+                            }
                         },
-                        yFleet: {
-                            type: 'linear',
-                            display: hasFleetData,
-                            position: 'right',
-                            grid: { drawOnChartArea: false },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return 'Fleet Cards: ' + Math.round(context.parsed.y);
+                                }
+                            }
+                        },
+                        datalabels: {
+                            display: function(context) {
+                                return context.dataset.data[context.dataIndex] > 0;
+                            },
+                            color: '#16a34a',
+                            font: { weight: 'bold', size: 11 },
+                            anchor: 'end',
+                            align: 'top',
+                            offset: 2,
+                            formatter: function(value) {
+                                return Math.round(value);
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                stepSize: 1,
+                                callback: function(value) {
+                                    return Math.round(value);
+                                }
+                            },
                             title: {
                                 display: true,
-                                text: 'Fleet Cards',
+                                text: 'Number of Fleet Cards',
                                 color: '#22c55e',
                                 font: { weight: '500', size: 11 }
                             },
-                            ticks: {
-                                callback: function(value) {
-                                    return Math.round(value);
-                                },
-                                stepSize: 1
-                            },
-                            position: 'right',
-                            suggestedMin: 0
+                            grid: {
+                                color: 'rgba(0,0,0,0.05)'
+                            }
                         }
                     }
-                },
-                plugins: [dataLabelsPlugin]
+                }
             });
         }
 
@@ -724,6 +712,7 @@
             statFleetCards.textContent = '0';
             statRatio.textContent = '0.0';
             if (fuelChart) { fuelChart.destroy(); fuelChart = null; }
+            if (fleetChart) { fleetChart.destroy(); fleetChart = null; }
             statusMsg.className = 'status-msg';
             statusMsg.innerHTML = 'Paste the public CSV link and click Fetch.';
             debugInfo.classList.remove('show');

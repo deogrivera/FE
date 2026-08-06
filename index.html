@@ -123,7 +123,7 @@
         <div class="stat-card">
             <div class="stat-label"><i class="fas fa-credit-card"></i> Total Fleet Cards</div>
             <div class="stat-value" id="statFleetCards">0</div>
-            <div class="stat-sub">all time</div>
+            <div class="stat-sub">unique vehicles active</div>
         </div>
         <div class="stat-card" style="background: #f0fdf4; border-color: #bbf7d0;">
             <div class="stat-label"><i class="fas fa-calculator"></i> Liters / Fleet Card</div>
@@ -164,7 +164,7 @@
         <div class="data-header">
             <h3><i class="fas fa-link"></i> CSV Public Link</h3>
             <span style="font-size:0.8rem; color:#5f7d9c;">
-                <i class="fas fa-arrows-left-right"></i> Row 102 (Liters & Cost) · Row 116 (Fleet Cards)
+                <i class="fas fa-arrows-left-right"></i> Monthly_Summary sheet (per-vehicle Liters & Amount, auto-totaled)
             </span>
         </div>
         <div class="data-body">
@@ -176,9 +176,9 @@
                     <span class="sample-link" id="loadSampleBtn"><i class="fas fa-arrow-right"></i> use sample</span>
                 </div>
                 <div class="column-legend">
-                    <span><i class="fas fa-square" style="color:#2563eb;"></i> Liters: <span class="liters-col">F, H, J, L, N, P, R, T, V, X, Z, AB</span> (Row 102)</span>
-                    <span><i class="fas fa-square" style="color:#f97316;"></i> Cost: <span class="cost-col">G, I, K, M, O, Q, S, U, W, Y, AA, AC</span> (Row 102)</span>
-                    <span><i class="fas fa-square" style="color:#22c55e;"></i> Fleet Cards: <span class="fleet-col">F, H, J, L, N, P, R, T, V, X, Z, AB</span> (Row 116)</span>
+                    <span><i class="fas fa-square" style="color:#2563eb;"></i> Liters: <span class="liters-col">first column of each month pair</span></span>
+                    <span><i class="fas fa-square" style="color:#f97316;"></i> Amount: <span class="cost-col">second column of each month pair</span></span>
+                    <span><i class="fas fa-square" style="color:#22c55e;"></i> Fleet Cards: <span class="fleet-col">count of vehicles with Liters &gt; 0, per month</span></span>
                 </div>
                 <div id="statusMsg" class="status-msg" style="margin-top:0.4rem;">Paste the public CSV link and click Fetch.</div>
             </div>
@@ -233,17 +233,6 @@
         let fleetChart = null;
         let lastRawData = null;
 
-        // ---- month names ----
-        const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-
-        // ---- Column mappings ----
-        // Liters: F=5, H=7, J=9, L=11, N=13, P=15, R=17, T=19, V=21, X=23, Z=25, AB=27
-        const literColIndices = [5, 7, 9, 11, 13, 15, 17, 19, 21, 23, 25, 27];
-        // Cost: G=6, I=8, K=10, M=12, O=14, Q=16, S=18, U=20, W=22, Y=24, AA=26, AC=28
-        const costColIndices = [6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28];
-        // Fleet Cards (Row 116): same columns as liters: F, H, J, L, N, P, R, T, V, X, Z, AB
-        const fleetColIndices = [5, 7, 9, 11, 13, 15, 17, 19, 21, 23, 25, 27];
-
         // ---- improved CSV parser that handles quoted fields and thousand separators ----
         function parseCSVRow(row) {
             const result = [];
@@ -285,109 +274,79 @@
         }
 
         // ---- extract monthly data from CSV ----
+        // New source format (Monthly_Summary tab from the FleetHub import script):
+        //   Row 1: "Vehicle License Number", "Jan 2026", "", "Feb 2026", "", ...  (month label, then blank merge cell)
+        //   Row 2: "Vehicle License Number", "Liters", "Amount", "Liters", "Amount", ...
+        //   Row 3+: one row per vehicle, with paired Liters/Amount values per month.
+        // There is no pre-computed totals row anymore, so this function sums
+        // every vehicle row itself to build the monthly totals, and counts
+        // "fleet cards used" as the number of vehicles with Liters > 0 that month.
         function extractMonthlyData(csvText) {
-            const lines = csvText.split(/\r?\n/);
+            const lines = csvText.split(/\r?\n/).filter(l => l.trim() !== '');
             const debugLines = [];
-            
-            // Need at least Row 116 (index 115)
-            if (lines.length < 116) {
-                throw new Error(`CSV has only ${lines.length} rows. Need at least 117 rows (Row 116).`);
+
+            if (lines.length < 3) {
+                throw new Error(`CSV has only ${lines.length} non-empty rows. Expected a header row, a sub-header row, and at least one vehicle row.`);
             }
 
-            // Row 102 is index 101 (0-based)
-            const row102 = lines[101]; 
-            if (!row102) throw new Error('Row 102 not found in CSV.');
-            
-            // Row 116 is index 115 (0-based)
-            const row116 = lines[115];
-            if (!row116) throw new Error('Row 116 not found in CSV.');
-            
-            debugLines.push(`Row 102 raw: "${row102}"`);
-            debugLines.push(`Row 116 raw: "${row116}"`);
-            
-            const cols102 = parseCSVRow(row102);
-            const cols116 = parseCSVRow(row116);
-            
-            debugLines.push(`Row 102 parsed into ${cols102.length} columns`);
-            debugLines.push(`Row 116 parsed into ${cols116.length} columns`);
-            
-            // Extract liters from Row 102
-            const liters = [];
-            const costs = [];
-            const fleetCards = [];
-            
-            // Liters from Row 102, columns F, H, J, L, N, P, R, T, V, X, Z, AB
-            for (let i = 0; i < literColIndices.length; i++) {
-                const idx = literColIndices[i];
-                let val = NaN;
-                let rawVal = '';
-                
-                if (idx < cols102.length) {
-                    rawVal = cols102[idx];
-                    val = cleanNumber(rawVal);
-                }
-                
-                const colLetter = String.fromCharCode(65 + idx);
-                debugLines.push(`Liters Row102 Col ${colLetter}: raw="${rawVal}" → parsed=${val}`);
-                
-                if (!isNaN(val) && val > 0) {
-                    liters.push(val);
-                } else {
-                    liters.push(0);
+            const headerRow = parseCSVRow(lines[0]);
+            debugLines.push(`Header row parsed into ${headerRow.length} columns`);
+
+            // Month labels sit at columns 1, 3, 5, ... (odd indices); the even
+            // indices next to them are blank (merged cells in the source sheet).
+            const monthLabels = [];
+            const literColIndices = [];
+            const costColIndices = [];
+            for (let c = 1; c < headerRow.length; c += 2) {
+                const label = (headerRow[c] || '').trim();
+                if (label !== '') {
+                    monthLabels.push(label);
+                    literColIndices.push(c);
+                    costColIndices.push(c + 1);
                 }
             }
 
-            // Cost from Row 102, columns G, I, K, M, O, Q, S, U, W, Y, AA, AC
-            for (let i = 0; i < costColIndices.length; i++) {
-                const idx = costColIndices[i];
-                let val = NaN;
-                let rawVal = '';
-                
-                if (idx < cols102.length) {
-                    rawVal = cols102[idx];
-                    val = cleanNumber(rawVal);
-                }
-                
-                const colLetter = String.fromCharCode(65 + idx);
-                debugLines.push(`Cost Row102 Col ${colLetter}: raw="${rawVal}" → parsed=${val}`);
-                
-                if (!isNaN(val) && val > 0) {
-                    costs.push(val);
-                } else {
-                    costs.push(0);
+            if (monthLabels.length === 0) {
+                throw new Error('No month columns found in header row. Expected labels like "Jan 2026" starting at column B.');
+            }
+            debugLines.push(`Detected ${monthLabels.length} months: ${monthLabels.join(', ')}`);
+
+            const liters = new Array(monthLabels.length).fill(0);
+            const costs = new Array(monthLabels.length).fill(0);
+            const fleetCards = new Array(monthLabels.length).fill(0);
+
+            // Data rows start at index 2 (after header row + Liters/Amount sub-header row).
+            let vehicleCount = 0;
+            const activeVehicles = new Set();
+            for (let r = 2; r < lines.length; r++) {
+                const cols = parseCSVRow(lines[r]);
+                const vehicle = (cols[0] || '').trim();
+                if (vehicle === '') continue;
+                vehicleCount++;
+
+                for (let m = 0; m < monthLabels.length; m++) {
+                    const litersVal = cleanNumber(cols[literColIndices[m]]);
+                    const costVal = cleanNumber(cols[costColIndices[m]]);
+                    const l = isNaN(litersVal) ? 0 : litersVal;
+                    const c = isNaN(costVal) ? 0 : costVal;
+
+                    liters[m] += l;
+                    costs[m] += c;
+                    if (l > 0) {
+                        fleetCards[m] += 1;
+                        activeVehicles.add(vehicle);
+                    }
                 }
             }
 
-            // Fleet Cards from Row 116, columns F, H, J, L, N, P, R, T, V, X, Z, AB
-            for (let i = 0; i < fleetColIndices.length; i++) {
-                const idx = fleetColIndices[i];
-                let val = NaN;
-                let rawVal = '';
-                
-                if (idx < cols116.length) {
-                    rawVal = cols116[idx];
-                    val = cleanInteger(rawVal);
-                }
-                
-                const colLetter = String.fromCharCode(65 + idx);
-                debugLines.push(`Fleet Row116 Col ${colLetter}: raw="${rawVal}" → parsed=${val}`);
-                
-                if (!isNaN(val) && val > 0) {
-                    fleetCards.push(val);
-                } else {
-                    fleetCards.push(0);
-                }
-            }
+            debugLines.push(`Summed ${vehicleCount} vehicle rows`);
+            monthLabels.forEach((label, i) => {
+                debugLines.push(`${label}: Liters=${liters[i].toFixed(2)} Amount=${costs[i].toFixed(2)} FleetCards=${fleetCards[i]}`);
+            });
 
-            // Ensure we have the same number of items (should be 12 each)
-            while (liters.length < 12) liters.push(0);
-            while (costs.length < 12) costs.push(0);
-            while (fleetCards.length < 12) fleetCards.push(0);
-
-            // Store debug info
             lastRawData = debugLines;
 
-            return { liters, costs, fleetCards };
+            return { months: monthLabels, liters, costs, fleetCards, uniqueVehicles: activeVehicles.size };
         }
 
         // ---- format number with commas ----
@@ -397,19 +356,18 @@
         }
 
         // ---- update dashboard ----
-        function updateDashboard(litersArr, costArr, fleetArr) {
-            const maxLen = Math.min(12, Math.max(litersArr.length, costArr.length, fleetArr.length));
+        function updateDashboard(monthLabels, litersArr, costArr, fleetArr, uniqueVehicles) {
             const months = [];
             const liters = [];
             const costs = [];
             const fleet = [];
 
-            for (let i = 0; i < maxLen; i++) {
-                const l = (i < litersArr.length) ? litersArr[i] : 0;
-                const c = (i < costArr.length) ? costArr[i] : 0;
-                const f = (i < fleetArr.length) ? fleetArr[i] : 0;
+            for (let i = 0; i < monthLabels.length; i++) {
+                const l = litersArr[i] || 0;
+                const c = costArr[i] || 0;
+                const f = fleetArr[i] || 0;
                 if (l > 0 || c > 0 || f > 0) {
-                    months.push(monthNames[i]);
+                    months.push(monthLabels[i]);
                     liters.push(l);
                     costs.push(c);
                     fleet.push(f);
@@ -449,8 +407,7 @@
 
             const totalLiters = liters.reduce((a,b) => a + b, 0);
             const totalCost = costs.reduce((a,b) => a + b, 0);
-            const totalFleet = fleet.reduce((a,b) => a + b, 0);
-            const avgLiters = totalLiters / months.length;
+            const totalFleet = uniqueVehicles || 0; // distinct vehicles/cards active across the whole period
             const ratio = totalFleet > 0 ? totalLiters / totalFleet : 0;
 
             statMonths.textContent = months.length;
@@ -686,8 +643,8 @@
 
             try {
                 const csvText = await fetchCSV(url);
-                const { liters, costs, fleetCards } = extractMonthlyData(csvText);
-                updateDashboard(liters, costs, fleetCards);
+                const { months, liters, costs, fleetCards, uniqueVehicles } = extractMonthlyData(csvText);
+                updateDashboard(months, liters, costs, fleetCards, uniqueVehicles);
                 statusMsg.className = 'status-msg success';
                 statusMsg.innerHTML = `<i class="fas fa-check-circle"></i> Data loaded successfully from CSV.`;
             } catch (err) {
@@ -734,7 +691,7 @@
 
         // ---- load sample ----
         function loadSample() {
-            csvUrlInput.value = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTvMAlHjMtRJbuReDrIcYbRr93ONSVmvxidycgrFUIQrNh4XTL-4kLPFc62d6qCcA/pub?gid=1892268465&single=true&output=csv';
+            csvUrlInput.value = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSJF9zFlZ6Cf_wqIDALZHjVPCdjoo9xCNa10G-8r6TROtED1jNPhAmDEV7ETuzBc4sybYrPfCdOC_pi/pub?gid=1336709651&single=true&output=csv';
             fetchAndProcess();
         }
 
@@ -752,9 +709,9 @@
             }
         });
 
-        // ---- auto-load sample on first visit ----
+        // ---- auto-load on first visit ----
         window.addEventListener('load', () => {
-            csvUrlInput.value = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTvMAlHjMtRJbuReDrIcYbRr93ONSVmvxidycgrFUIQrNh4XTL-4kLPFc62d6qCcA/pub?gid=1892268465&single=true&output=csv';
+            csvUrlInput.value = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSJF9zFlZ6Cf_wqIDALZHjVPCdjoo9xCNa10G-8r6TROtED1jNPhAmDEV7ETuzBc4sybYrPfCdOC_pi/pub?gid=1336709651&single=true&output=csv';
             fetchAndProcess();
         });
     })();

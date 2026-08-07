@@ -576,14 +576,14 @@
             font-weight: 600;
             color: #6d28d9;
         }
-        .trip-tickets-table .badge-count {
+        .trip-tickets-table .badge-tracking {
             display: inline-block;
-            background: #f0fdf4;
-            padding: 0.1rem 0.6rem;
+            background: #fef3c7;
+            padding: 0.1rem 0.5rem;
             border-radius: 30px;
             font-size: 0.7rem;
             font-weight: 600;
-            color: #16a34a;
+            color: #92400e;
         }
 
         /* ----- Responsive ----- */
@@ -823,7 +823,7 @@
                         </div>
 
                         <!-- ============================================================ -->
-                        <!-- TRIP TICKETS ISSUED SECTION -->
+                        <!-- TRIP TICKETS ISSUED SECTION (UPDATED COLUMN MAPPINGS) -->
                         <!-- ============================================================ -->
                         <div class="trip-tickets-section">
                             <div class="section-title">
@@ -834,7 +834,7 @@
                             </div>
 
                             <div class="trip-tickets-url-box">
-                                <label><i class="fas fa-globe"></i> Trip Tickets CSV URL (Vehicle Plate in Col D, Dates in Col G)</label>
+                                <label><i class="fas fa-globe"></i> Trip Tickets CSV URL (Col A: Tracking Code, Col D: Plate, Col F: Destination, Col G: Date)</label>
                                 <div class="url-input-row">
                                     <input type="text" id="tripTicketsUrlInput" placeholder="https://docs.google.com/spreadsheets/d/e/.../pub?output=csv" />
                                     <button class="btn btn-purple" id="loadTripTicketsBtn"><i class="fas fa-cloud-download-alt"></i> Load Trip Tickets</button>
@@ -852,13 +852,11 @@
                                                 <th>Plate No.</th>
                                                 <th>Driver</th>
                                                 <th>Destination</th>
-                                                <th>Purpose</th>
-                                                <th>Trip Ticket #</th>
-                                                <th>Status</th>
+                                                <th>Tracking Code</th>
                                             </tr>
                                         </thead>
                                         <tbody id="tripTicketsBody">
-                                            <tr><td colspan="7" class="empty-message">Load trip tickets data above, then select a vehicle and month.</td></tr>
+                                            <tr><td colspan="5" class="empty-message">Load trip tickets data above, then select a vehicle and month.</td></tr>
                                         </tbody>
                                     </table>
                                 </div>
@@ -1687,7 +1685,7 @@
             });
 
             // ------------------------------------------------------------------
-            // 9. TRIP TICKETS ISSUED (UPDATED URL & DATE FORMAT)
+            // 9. TRIP TICKETS ISSUED (UPDATED COLUMN MAPPINGS)
             // ------------------------------------------------------------------
             async function loadTripTickets() {
                 const url = tripTicketsUrlInput.value.trim();
@@ -1706,28 +1704,39 @@
 
                     const header = parseCSVRow(lines[0]);
                     
-                    // Column detection with fallbacks
+                    // UPDATED COLUMN MAPPINGS:
+                    // Col A = index 0 → Tracking Code
+                    // Col D = index 3 → Plate
+                    // Col F = index 5 → Destination
+                    // Col G = index 6 → Date
                     const idx = {
-                        // Col D = index 3, Col G = index 6
-                        plate: header.length > 3 ? 3 : -1,
-                        date: header.length > 6 ? 6 : -1,
+                        trackingCode: 0,        // Col A
+                        plate: 3,               // Col D
+                        destination: 5,         // Col F
+                        date: 6,                // Col G
+                        // Auto-detect driver column (if exists, we keep it)
                         driver: header.findIndex(h => /driver|operator|name/i.test(h)),
-                        destination: header.findIndex(h => /destination|location|route|to/i.test(h)),
-                        purpose: header.findIndex(h => /purpose|reason|project|objective/i.test(h)),
-                        ticketNo: header.findIndex(h => /ticket|no|number|ref|id/i.test(h)),
-                        status: header.findIndex(h => /status|state|condition/i.test(h)),
                     };
 
-                    // Fallback: try to find by name if not at expected positions
-                    if (idx.plate === -1) {
+                    // Fallback: if the auto-detected positions don't have data, try to find by name
+                    if (idx.plate === -1 || header.length <= idx.plate) {
                         idx.plate = header.findIndex(h => /plate|license|vehicle|unit/i.test(h));
                     }
-                    if (idx.date === -1) {
+                    if (idx.date === -1 || header.length <= idx.date) {
                         idx.date = header.findIndex(h => /date|delivery|issued|created/i.test(h));
                     }
+                    if (idx.trackingCode === -1 || header.length <= idx.trackingCode) {
+                        idx.trackingCode = header.findIndex(h => /tracking|code|ref|id|ticket|no/i.test(h));
+                    }
+                    if (idx.destination === -1 || header.length <= idx.destination) {
+                        idx.destination = header.findIndex(h => /destination|location|route|to/i.test(h));
+                    }
 
-                    if (idx.plate === -1 || idx.date === -1) {
-                        throw new Error('Could not find Plate column (Col D) or Date column (Col G). Please check the CSV structure.');
+                    // Validate required columns exist
+                    const required = ['plate', 'date'];
+                    const missing = required.filter(k => idx[k] === -1 || idx[k] >= header.length);
+                    if (missing.length > 0) {
+                        throw new Error(`Required column(s) not found: ${missing.join(', ')}. Check CSV structure.`);
                     }
 
                     tripTicketsRows = [];
@@ -1748,11 +1757,9 @@
                         tripTicketsRows.push({
                             date: dateObj,
                             plate: plate,
-                            driver: idx.driver !== -1 ? (cols[idx.driver] || '').trim() : '—',
-                            destination: idx.destination !== -1 ? (cols[idx.destination] || '').trim() : '—',
-                            purpose: idx.purpose !== -1 ? (cols[idx.purpose] || '').trim() : '—',
-                            ticketNo: idx.ticketNo !== -1 ? (cols[idx.ticketNo] || '').trim() : '—',
-                            status: idx.status !== -1 ? (cols[idx.status] || '').trim() : '—',
+                            trackingCode: (cols[idx.trackingCode] || '').trim() || '—',
+                            destination: (cols[idx.destination] || '').trim() || '—',
+                            driver: idx.driver !== -1 && idx.driver < cols.length ? (cols[idx.driver] || '').trim() : '—',
                         });
                     }
 
@@ -1780,13 +1787,13 @@
 
                 if (!tripTicketsLoaded || tripTicketsRows.length === 0) {
                     tripTicketsBody.innerHTML =
-                        `<tr><td colspan="7" class="empty-message">Load trip tickets data first.</td></tr>`;
+                        `<tr><td colspan="5" class="empty-message">Load trip tickets data first.</td></tr>`;
                     return;
                 }
 
                 if (!vehicle || !monthKey) {
                     tripTicketsBody.innerHTML =
-                        `<tr><td colspan="7" class="empty-message">Select a vehicle and month to view matching trip tickets.</td></tr>`;
+                        `<tr><td colspan="5" class="empty-message">Select a vehicle and month to view matching trip tickets.</td></tr>`;
                     return;
                 }
 
@@ -1807,7 +1814,7 @@
 
                 if (matches.length === 0) {
                     tripTicketsBody.innerHTML =
-                        `<tr><td colspan="7" class="empty-message">No trip tickets found for ${vehicle} in ${monthLabelOf(monthDate)}.</td></tr>`;
+                        `<tr><td colspan="5" class="empty-message">No trip tickets found for ${vehicle} in ${monthLabelOf(monthDate)}.</td></tr>`;
                     return;
                 }
 
@@ -1820,15 +1827,12 @@
                         <td><span class="badge">${r.plate}</span></td>
                         <td>${r.driver}</td>
                         <td>${r.destination}</td>
-                        <td>${r.purpose}</td>
-                        <td>${r.ticketNo}</td>
-                        <td><span class="badge-count">${r.status}</span></td>
+                        <td><span class="badge-tracking">${r.trackingCode}</span></td>
                     </tr>
                 `).join('');
             }
 
             function loadTripTicketsSample() {
-                // Updated URL with the correct gid
                 tripTicketsUrlInput.value =
                     'https://docs.google.com/spreadsheets/d/e/2PACX-1vQOiY9iLl8uqDwtOIqJSl8c0yue4XKNQ62X3guYta0l-wlNM1cHQ1XLE8SGmDJN2bYp-fSdHDaMdyrg/pub?gid=1515574364&single=true&output=csv';
                 loadTripTickets();

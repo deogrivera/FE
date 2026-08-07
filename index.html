@@ -599,6 +599,49 @@
             font-weight: 600;
             color: #92400e;
         }
+        .trip-tickets-table .match-badge {
+            display: inline-block;
+            background: #dbeafe;
+            padding: 0.1rem 0.5rem;
+            border-radius: 30px;
+            font-size: 0.6rem;
+            font-weight: 600;
+            color: #1d4ed8;
+            margin-left: 0.3rem;
+        }
+
+        /* ----- Plate Mapping Section ----- */
+        .plate-mapping-box {
+            background: #f0fdf4;
+            border-radius: 1rem;
+            padding: 0.8rem 1.2rem;
+            margin: 0.5rem 0 1rem;
+            border: 1px solid #bbf7d0;
+        }
+        .plate-mapping-box label {
+            font-weight: 600;
+            color: #166534;
+            font-size: 0.85rem;
+            display: block;
+            margin-bottom: 0.3rem;
+        }
+        .plate-mapping-box .mapping-hint {
+            font-size: 0.75rem;
+            color: #4f6f8f;
+        }
+        .plate-mapping-box .mapping-examples {
+            display: flex;
+            gap: 1rem;
+            flex-wrap: wrap;
+            font-size: 0.75rem;
+            margin-top: 0.3rem;
+        }
+        .plate-mapping-box .mapping-examples span {
+            background: white;
+            padding: 0.15rem 0.6rem;
+            border-radius: 30px;
+            border: 1px solid #d6e2f0;
+        }
 
         /* ----- Responsive ----- */
         @media (max-width: 700px) {
@@ -837,7 +880,7 @@
                         </div>
 
                         <!-- ============================================================ -->
-                        <!-- TRIP TICKETS ISSUED SECTION (UPDATED COLUMN MAPPINGS) -->
+                        <!-- TRIP TICKETS ISSUED SECTION (WITH SEPARATE PLATE MAPPING) -->
                         <!-- ============================================================ -->
                         <div class="trip-tickets-section">
                             <div class="section-title">
@@ -857,6 +900,20 @@
                                 <div id="tripTicketsStatusMsg" class="status-msg" style="margin-top:0.3rem; font-size:0.8rem;">Paste the Trip Tickets CSV link and click Load.</div>
                             </div>
 
+                            <!-- Plate Mapping Info -->
+                            <div class="plate-mapping-box">
+                                <label><i class="fas fa-code-branch"></i> Plate Number Mapping</label>
+                                <div class="mapping-hint">
+                                    Trip Tickets use a different plate format than FleetHub_Data. 
+                                    The system will try multiple matching strategies:
+                                </div>
+                                <div class="mapping-examples">
+                                    <span>🔹 Exact match: <code>ABC-1234</code> → <code>ABC-1234</code></span>
+                                    <span>🔹 Normalized: <code>ABC-1234</code> → <code>ABC1234</code></span>
+                                    <span>🔹 Partial: <code>ABC-1234</code> matches <code>ABC-1234-X</code></span>
+                                </div>
+                            </div>
+
                             <div id="tripTicketsResults">
                                 <div class="preview-table trip-tickets-table">
                                     <table>
@@ -867,10 +924,11 @@
                                                 <th>Driver</th>
                                                 <th>Destination</th>
                                                 <th>Tracking Code</th>
+                                                <th>Match Type</th>
                                             </tr>
                                         </thead>
                                         <tbody id="tripTicketsBody">
-                                            <tr><td colspan="5" class="empty-message">Load trip tickets data above, then select a vehicle and month.</td></tr>
+                                            <tr><td colspan="6" class="empty-message">Load trip tickets data above, then select a vehicle and month.</td></tr>
                                         </tbody>
                                     </table>
                                 </div>
@@ -1047,7 +1105,41 @@
             }
 
             // ------------------------------------------------------------------
-            // 5. EXTRACT MONTHLY DATA (Monthly_Summary)
+            // 5. PLATE NORMALIZATION & MATCHING (SEPARATE FOR TRIP TICKETS)
+            // ------------------------------------------------------------------
+            function normalizePlate(plate) {
+                if (!plate) return '';
+                // Remove all non-alphanumeric characters and convert to uppercase
+                return plate.toUpperCase().replace(/[^A-Z0-9]/g, '');
+            }
+
+            function getPlateMatchType(tripPlate, fleetPlate) {
+                if (!tripPlate || !fleetPlate) return 'no-match';
+                
+                const tPlate = tripPlate.toUpperCase().trim();
+                const fPlate = fleetPlate.toUpperCase().trim();
+                
+                // 1. Exact match
+                if (tPlate === fPlate) return 'exact';
+                
+                // 2. Normalized match (remove special characters)
+                const tNorm = normalizePlate(tPlate);
+                const fNorm = normalizePlate(fPlate);
+                if (tNorm === fNorm) return 'normalized';
+                
+                // 3. Partial match (one contains the other)
+                if (tNorm.includes(fNorm) || fNorm.includes(tNorm)) return 'partial';
+                
+                // 4. Try matching after removing spaces and dashes from both
+                const tClean = tPlate.replace(/[\s\-]/g, '');
+                const fClean = fPlate.replace(/[\s\-]/g, '');
+                if (tClean === fClean) return 'cleaned';
+                
+                return 'no-match';
+            }
+
+            // ------------------------------------------------------------------
+            // 6. EXTRACT MONTHLY DATA (Monthly_Summary)
             // ------------------------------------------------------------------
             function extractMonthlyData(csvText) {
                 const lines = csvText.split(/\r?\n/).filter(l => l.trim() !== '');
@@ -1117,7 +1209,7 @@
             }
 
             // ------------------------------------------------------------------
-            // 6. UPDATE DASHBOARD (Overview + Data tab)
+            // 7. UPDATE DASHBOARD (Overview + Data tab)
             // ------------------------------------------------------------------
             function updateDashboard(monthLabels, litersArr, costArr, fleetArr, uniqueVehicles) {
                 const months = [];
@@ -1337,7 +1429,7 @@
             }
 
             // ------------------------------------------------------------------
-            // 7. FETCH & PROCESS (Monthly)
+            // 8. FETCH & PROCESS (Monthly)
             // ------------------------------------------------------------------
             async function fetchCSV(url) {
                 const response = await fetch(url);
@@ -1412,7 +1504,7 @@
                     fetchAndProcess(); } });
 
             // ------------------------------------------------------------------
-            // 8. VEHICLE DRILL-DOWN (raw transaction data)
+            // 9. VEHICLE DRILL-DOWN (raw transaction data)
             // ------------------------------------------------------------------
             async function loadDrillData() {
                 const url = drillCsvUrlInput.value.trim();
@@ -1699,7 +1791,7 @@
             });
 
             // ------------------------------------------------------------------
-            // 9. TRIP TICKETS ISSUED WITH DEBUG FEATURE
+            // 10. TRIP TICKETS WITH SEPARATE PLATE MATCHING
             // ------------------------------------------------------------------
             async function loadTripTickets() {
                 const url = tripTicketsUrlInput.value.trim();
@@ -1718,7 +1810,7 @@
 
                     const header = parseCSVRow(lines[0]);
                     
-                    // UPDATED COLUMN MAPPINGS:
+                    // COLUMN MAPPINGS:
                     // Col A = index 0 → Tracking Code
                     // Col D = index 3 → Plate
                     // Col F = index 5 → Destination
@@ -1759,15 +1851,17 @@
 
                     for (let i = 1; i < lines.length; i++) {
                         const cols = parseCSVRow(lines[i]);
-                        const plate = (cols[idx.plate] || '').trim().toUpperCase();
+                        // Store the raw plate from the Trip Tickets CSV (preserve original format)
+                        const rawPlate = (cols[idx.plate] || '').trim();
+                        const plate = rawPlate.toUpperCase();
                         const dateStr = (cols[idx.date] || '').trim();
                         const dateObj = parseDateFromCol(dateStr);
                         
                         if (!plate || !dateObj) {
                             skippedCount++;
                             skippedRows.push({
-                                rowIndex: i + 1, // human-readable row number (1-indexed)
-                                plate: plate || '[EMPTY]',
+                                rowIndex: i + 1,
+                                plate: rawPlate || '[EMPTY]',
                                 date: dateStr || '[EMPTY]',
                                 reason: !plate ? 'Missing Plate' : 'Invalid Date'
                             });
@@ -1777,7 +1871,8 @@
                         parsedCount++;
                         tripTicketsRows.push({
                             date: dateObj,
-                            plate: plate,
+                            plate: plate,           // Store normalized plate for matching
+                            rawPlate: rawPlate,     // Keep original format for display
                             trackingCode: (cols[idx.trackingCode] || '').trim() || '—',
                             destination: (cols[idx.destination] || '').trim() || '—',
                             driver: idx.driver !== -1 && idx.driver < cols.length ? (cols[idx.driver] || '').trim() : '—',
@@ -1795,7 +1890,6 @@
                     if (skippedCount > 0) {
                         statusHTML += ` <span style="color:#f59e0b;">⚠️ ${skippedCount} rows skipped</span>`;
                         
-                        // Show sample of skipped rows
                         const sampleSize = Math.min(5, skippedRows.length);
                         const sampleHTML = skippedRows.slice(0, sampleSize).map(r => 
                             `Row ${r.rowIndex}: Plate="${r.plate}", Date="${r.date}" → ${r.reason}`
@@ -1803,7 +1897,6 @@
                         
                         statusHTML += `<span class="debug-skipped">🔍 First ${sampleSize} skipped rows:<br>${sampleHTML}</span>`;
                         
-                        // Also log to console for full list
                         console.log(`=== TRIP TICKETS: ${skippedCount} rows skipped ===`);
                         console.log('First 10 skipped rows:');
                         skippedRows.slice(0, 10).forEach(r => {
@@ -1832,13 +1925,13 @@
 
                 if (!tripTicketsLoaded || tripTicketsRows.length === 0) {
                     tripTicketsBody.innerHTML =
-                        `<tr><td colspan="5" class="empty-message">Load trip tickets data first.</td></tr>`;
+                        `<tr><td colspan="6" class="empty-message">Load trip tickets data first.</td></tr>`;
                     return;
                 }
 
                 if (!vehicle || !monthKey) {
                     tripTicketsBody.innerHTML =
-                        `<tr><td colspan="5" class="empty-message">Select a vehicle and month to view matching trip tickets.</td></tr>`;
+                        `<tr><td colspan="6" class="empty-message">Select a vehicle and month to view matching trip tickets.</td></tr>`;
                     return;
                 }
 
@@ -1846,33 +1939,47 @@
                 const [year, month] = monthKey.split('-').map(Number);
                 const monthDate = new Date(year, month - 1, 1);
 
-                // Filter: vehicle plate matches (case-insensitive partial match) AND date falls within the selected month
+                // Filter using SEPARATE plate matching logic
                 const matches = tripTicketsRows.filter(r => {
-                    const rPlate = r.plate.toUpperCase();
-                    const vPlate = vehicle.toUpperCase();
-                    // Check if vehicle plate is contained in the ticket plate (for partial matches)
-                    const plateMatch = rPlate.includes(vPlate) || vPlate.includes(rPlate);
                     const dateMatch = r.date.getMonth() === monthDate.getMonth() &&
                         r.date.getFullYear() === monthDate.getFullYear();
-                    return plateMatch && dateMatch;
+                    
+                    if (!dateMatch) return false;
+                    
+                    // Use the separate plate matching function
+                    const matchType = getPlateMatchType(r.plate, vehicle);
+                    r._matchType = matchType; // Store match type for display
+                    return matchType !== 'no-match';
                 });
 
                 if (matches.length === 0) {
                     tripTicketsBody.innerHTML =
-                        `<tr><td colspan="5" class="empty-message">No trip tickets found for ${vehicle} in ${monthLabelOf(monthDate)}.</td></tr>`;
+                        `<tr><td colspan="6" class="empty-message">No trip tickets found for ${vehicle} in ${monthLabelOf(monthDate)}.</td></tr>`;
                     return;
                 }
 
                 // Sort by date
                 matches.sort((a, b) => a.date - b.date);
 
+                // Define match type labels with emojis
+                const matchLabels = {
+                    'exact': '✅ Exact',
+                    'normalized': '🔄 Normalized',
+                    'cleaned': '🧹 Cleaned',
+                    'partial': '🔍 Partial'
+                };
+
                 tripTicketsBody.innerHTML = matches.map(r => `
                     <tr>
                         <td>${formatDateMMDDYYYY(r.date)}</td>
-                        <td><span class="badge">${r.plate}</span></td>
+                        <td>
+                            <span class="badge">${r.rawPlate}</span>
+                            <span class="match-badge">${matchLabels[r._matchType] || r._matchType}</span>
+                        </td>
                         <td>${r.driver}</td>
                         <td>${r.destination}</td>
                         <td><span class="badge-tracking">${r.trackingCode}</span></td>
+                        <td style="font-size:0.7rem; color:#6b7280;">${r._matchType}</td>
                     </tr>
                 `).join('');
             }
@@ -1899,7 +2006,7 @@
             });
 
             // ------------------------------------------------------------------
-            // 10. AUTO-LOAD ON FIRST VISIT
+            // 11. AUTO-LOAD ON FIRST VISIT
             // ------------------------------------------------------------------
             window.addEventListener('load', () => {
                 csvUrlInput.value =

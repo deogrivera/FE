@@ -823,7 +823,7 @@
                         </div>
 
                         <!-- ============================================================ -->
-                        <!-- NEW: TRIP TICKETS ISSUED SECTION -->
+                        <!-- TRIP TICKETS ISSUED SECTION -->
                         <!-- ============================================================ -->
                         <div class="trip-tickets-section">
                             <div class="section-title">
@@ -983,17 +983,46 @@
                 return num.toFixed(decimals).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
             }
 
+            // Unified date parser: handles MM/DD/YYYY, M/D/YYYY, and YYYY-MM-DD
             function parseDateFromCol(raw) {
                 if (!raw) return null;
-                const parts = String(raw).trim().split('/');
-                if (parts.length !== 3) return null;
-                const month = parseInt(parts[0], 10);
-                const day = parseInt(parts[1], 10);
-                let year = parseInt(parts[2], 10);
-                if (isNaN(month) || isNaN(day) || isNaN(year)) return null;
-                if (year < 100) year += 2000;
-                const d = new Date(year, month - 1, day);
-                return isNaN(d) ? null : d;
+                const str = String(raw).trim();
+                
+                // Try MM/DD/YYYY or M/D/YYYY format
+                let parts = str.split('/');
+                if (parts.length === 3) {
+                    const month = parseInt(parts[0], 10);
+                    const day = parseInt(parts[1], 10);
+                    let year = parseInt(parts[2], 10);
+                    if (!isNaN(month) && !isNaN(day) && !isNaN(year)) {
+                        if (year < 100) year += 2000;
+                        const d = new Date(year, month - 1, day);
+                        if (!isNaN(d)) return d;
+                    }
+                }
+                
+                // Try YYYY-MM-DD format
+                parts = str.split('-');
+                if (parts.length === 3) {
+                    const year = parseInt(parts[0], 10);
+                    const month = parseInt(parts[1], 10);
+                    const day = parseInt(parts[2], 10);
+                    if (!isNaN(year) && !isNaN(month) && !isNaN(day)) {
+                        const d = new Date(year, month - 1, day);
+                        if (!isNaN(d)) return d;
+                    }
+                }
+                
+                return null;
+            }
+
+            // Normalize date to MM/DD/YYYY string for display
+            function formatDateMMDDYYYY(date) {
+                if (!date || isNaN(date)) return '—';
+                const month = String(date.getMonth() + 1).padStart(2, '0');
+                const day = String(date.getDate()).padStart(2, '0');
+                const year = date.getFullYear();
+                return `${month}/${day}/${year}`;
             }
 
             function monthKeyOf(date) {
@@ -1443,7 +1472,6 @@
                     drillStatusMsg.innerHTML =
                         `<i class="fas fa-check-circle"></i> Loaded ${drillRows.length} transactions across ${vehicles.length} vehicles.`;
 
-                    // Auto-update trip tickets if loaded
                     if (tripTicketsLoaded) {
                         updateTripTicketsDisplay();
                     }
@@ -1496,7 +1524,7 @@
 
                 drillTableBody.innerHTML = matches.map(r => `
                     <tr>
-                        <td>${r.date.toLocaleDateString('en-US', { month:'short', day:'numeric', year:'numeric' })}</td>
+                        <td>${formatDateMMDDYYYY(r.date)}</td>
                         <td>${r.site}</td>
                         <td>${r.product}</td>
                         <td>${formatNumber(r.quantity, 1)}</td>
@@ -1646,7 +1674,6 @@
                     }
                 });
 
-                // Update Trip Tickets display if loaded
                 if (tripTicketsLoaded) {
                     updateTripTicketsDisplay();
                 }
@@ -1660,7 +1687,7 @@
             });
 
             // ------------------------------------------------------------------
-            // 9. TRIP TICKETS ISSUED
+            // 9. TRIP TICKETS ISSUED (UPDATED URL & DATE FORMAT)
             // ------------------------------------------------------------------
             async function loadTripTickets() {
                 const url = tripTicketsUrlInput.value.trim();
@@ -1678,26 +1705,25 @@
                     if (lines.length < 2) throw new Error('CSV appears to have no data rows.');
 
                     const header = parseCSVRow(lines[0]);
-                    // Based on user: Vehicle Plate in Col D, Dates in Col G
-                    // We'll also try to auto-detect other columns
+                    
+                    // Column detection with fallbacks
                     const idx = {
                         // Col D = index 3, Col G = index 6
                         plate: header.length > 3 ? 3 : -1,
                         date: header.length > 6 ? 6 : -1,
-                        // Try to find other common columns
-                        driver: header.findIndex(h => /driver|operator/i.test(h)),
-                        destination: header.findIndex(h => /destination|location|route/i.test(h)),
-                        purpose: header.findIndex(h => /purpose|reason|project/i.test(h)),
-                        ticketNo: header.findIndex(h => /ticket|no|number|ref/i.test(h)),
-                        status: header.findIndex(h => /status|state/i.test(h)),
+                        driver: header.findIndex(h => /driver|operator|name/i.test(h)),
+                        destination: header.findIndex(h => /destination|location|route|to/i.test(h)),
+                        purpose: header.findIndex(h => /purpose|reason|project|objective/i.test(h)),
+                        ticketNo: header.findIndex(h => /ticket|no|number|ref|id/i.test(h)),
+                        status: header.findIndex(h => /status|state|condition/i.test(h)),
                     };
 
-                    // Fallback: if plate not found at index 3, try to find by name
+                    // Fallback: try to find by name if not at expected positions
                     if (idx.plate === -1) {
-                        idx.plate = header.findIndex(h => /plate|license|vehicle/i.test(h));
+                        idx.plate = header.findIndex(h => /plate|license|vehicle|unit/i.test(h));
                     }
                     if (idx.date === -1) {
-                        idx.date = header.findIndex(h => /date|delivery|issued/i.test(h));
+                        idx.date = header.findIndex(h => /date|delivery|issued|created/i.test(h));
                     }
 
                     if (idx.plate === -1 || idx.date === -1) {
@@ -1705,12 +1731,20 @@
                     }
 
                     tripTicketsRows = [];
+                    let parsedCount = 0;
+                    let skippedCount = 0;
+
                     for (let i = 1; i < lines.length; i++) {
                         const cols = parseCSVRow(lines[i]);
                         const plate = (cols[idx.plate] || '').trim().toUpperCase();
                         const dateObj = parseDateFromCol(cols[idx.date]);
-                        if (!plate || !dateObj) continue;
+                        
+                        if (!plate || !dateObj) {
+                            skippedCount++;
+                            continue;
+                        }
 
+                        parsedCount++;
                         tripTicketsRows.push({
                             date: dateObj,
                             plate: plate,
@@ -1723,15 +1757,14 @@
                     }
 
                     if (tripTicketsRows.length === 0) {
-                        throw new Error('No valid trip ticket rows found.');
+                        throw new Error(`No valid trip ticket rows found. Parsed: ${parsedCount}, Skipped: ${skippedCount}. Check date and plate columns.`);
                     }
 
                     tripTicketsLoaded = true;
                     tripTicketsStatusMsg.className = 'status-msg success';
                     tripTicketsStatusMsg.innerHTML =
-                        `<i class="fas fa-check-circle"></i> Loaded ${tripTicketsRows.length} trip tickets.`;
+                        `<i class="fas fa-check-circle"></i> Loaded ${tripTicketsRows.length} trip tickets (${skippedCount} rows skipped).`;
 
-                    // Update display if vehicle and month are selected
                     updateTripTicketsDisplay();
 
                 } catch (err) {
@@ -1745,28 +1778,27 @@
                 const vehicle = drillVehicleSelect.value;
                 const monthKey = drillMonthSelect.value;
 
-                if (!vehicle || !monthKey || !tripTicketsLoaded || tripTicketsRows.length === 0) {
-                    if (!tripTicketsLoaded) {
-                        tripTicketsBody.innerHTML =
-                            `<tr><td colspan="7" class="empty-message">Load trip tickets data first.</td></tr>`;
-                    } else if (!vehicle || !monthKey) {
-                        tripTicketsBody.innerHTML =
-                            `<tr><td colspan="7" class="empty-message">Select a vehicle and month to view matching trip tickets.</td></tr>`;
-                    } else {
-                        tripTicketsBody.innerHTML =
-                            `<tr><td colspan="7" class="empty-message">No matching trip tickets found.</td></tr>`;
-                    }
+                if (!tripTicketsLoaded || tripTicketsRows.length === 0) {
+                    tripTicketsBody.innerHTML =
+                        `<tr><td colspan="7" class="empty-message">Load trip tickets data first.</td></tr>`;
                     return;
                 }
 
-                // Filter: vehicle plate matches (case-insensitive) AND date falls within the selected month
-                const monthDate = new Date(parseInt(monthKey.split('-')[0]), parseInt(monthKey.split('-')[1]) - 1, 1);
+                if (!vehicle || !monthKey) {
+                    tripTicketsBody.innerHTML =
+                        `<tr><td colspan="7" class="empty-message">Select a vehicle and month to view matching trip tickets.</td></tr>`;
+                    return;
+                }
 
+                // Get the month/year from the selected month key
+                const [year, month] = monthKey.split('-').map(Number);
+                const monthDate = new Date(year, month - 1, 1);
+
+                // Filter: vehicle plate matches (case-insensitive partial match) AND date falls within the selected month
                 const matches = tripTicketsRows.filter(r => {
                     const rPlate = r.plate.toUpperCase();
                     const vPlate = vehicle.toUpperCase();
                     // Check if vehicle plate is contained in the ticket plate (for partial matches)
-                    // or exact match
                     const plateMatch = rPlate.includes(vPlate) || vPlate.includes(rPlate);
                     const dateMatch = r.date.getMonth() === monthDate.getMonth() &&
                         r.date.getFullYear() === monthDate.getFullYear();
@@ -1784,7 +1816,7 @@
 
                 tripTicketsBody.innerHTML = matches.map(r => `
                     <tr>
-                        <td>${r.date.toLocaleDateString('en-US', { month:'short', day:'numeric', year:'numeric' })}</td>
+                        <td>${formatDateMMDDYYYY(r.date)}</td>
                         <td><span class="badge">${r.plate}</span></td>
                         <td>${r.driver}</td>
                         <td>${r.destination}</td>
@@ -1796,8 +1828,9 @@
             }
 
             function loadTripTicketsSample() {
+                // Updated URL with the correct gid
                 tripTicketsUrlInput.value =
-                    'https://docs.google.com/spreadsheets/d/e/2PACX-1vQOiY9iLl8uqDwtOIqJSl8c0yue4XKNQ62X3guYta0l-wlNM1cHQ1XLE8SGmDJN2bYp-fSdHDaMdyrg/pub?gid=0&single=true&output=csv';
+                    'https://docs.google.com/spreadsheets/d/e/2PACX-1vQOiY9iLl8uqDwtOIqJSl8c0yue4XKNQ62X3guYta0l-wlNM1cHQ1XLE8SGmDJN2bYp-fSdHDaMdyrg/pub?gid=1515574364&single=true&output=csv';
                 loadTripTickets();
             }
 
@@ -1808,7 +1841,7 @@
                     loadTripTickets(); }
             });
 
-            // Also update trip tickets when vehicle/month selection changes
+            // Update trip tickets when vehicle/month selection changes
             drillVehicleSelect.addEventListener('change', () => {
                 if (tripTicketsLoaded) updateTripTicketsDisplay();
             });
@@ -1828,10 +1861,10 @@
                     'https://docs.google.com/spreadsheets/d/e/2PACX-1vSJF9zFlZ6Cf_wqIDALZHjVPCdjoo9xCNa10G-8r6TROtED1jNPhAmDEV7ETuzBc4sybYrPfCdOC_pi/pub?gid=0&single=true&output=csv';
                 setTimeout(() => loadDrillData(), 400);
 
-                // Auto-load trip tickets sample
+                // Auto-load trip tickets with the updated URL
                 setTimeout(() => {
                     tripTicketsUrlInput.value =
-                        'https://docs.google.com/spreadsheets/d/e/2PACX-1vQOiY9iLl8uqDwtOIqJSl8c0yue4XKNQ62X3guYta0l-wlNM1cHQ1XLE8SGmDJN2bYp-fSdHDaMdyrg/pub?gid=0&single=true&output=csv';
+                        'https://docs.google.com/spreadsheets/d/e/2PACX-1vQOiY9iLl8uqDwtOIqJSl8c0yue4XKNQ62X3guYta0l-wlNM1cHQ1XLE8SGmDJN2bYp-fSdHDaMdyrg/pub?gid=1515574364&single=true&output=csv';
                     loadTripTickets();
                 }, 600);
             });

@@ -610,7 +610,7 @@
             margin-left: 0.3rem;
         }
 
-        /* ----- Plate Mapping Section ----- */
+        /* ----- Plate Mapping Box ----- */
         .plate-mapping-box {
             background: #f0fdf4;
             border-radius: 1rem;
@@ -641,6 +641,236 @@
             padding: 0.15rem 0.6rem;
             border-radius: 30px;
             border: 1px solid #d6e2f0;
+        }
+
+        /* ============================================================ */
+        /* NEW: IMAGE GALLERY STYLES */
+        /* ============================================================ */
+        .image-gallery-section {
+            margin-top: 2rem;
+            border-top: 2px solid #e3ebf5;
+            padding-top: 1.5rem;
+        }
+        .image-gallery-section .section-title {
+            font-size: 1rem;
+            font-weight: 600;
+            color: #1a3652;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-bottom: 0.5rem;
+        }
+        .image-gallery-section .section-title i {
+            color: #ec4899;
+        }
+        .image-matrix-box {
+            background: #fdf2f8;
+            border-radius: 1.2rem;
+            padding: 0.8rem 1.2rem;
+            margin-bottom: 1rem;
+            border: 1px solid #fbcfe8;
+        }
+        .image-matrix-box label {
+            font-weight: 600;
+            color: #9d174d;
+            display: block;
+            margin-bottom: 0.3rem;
+            font-size: 0.85rem;
+        }
+        .image-matrix-box label i {
+            color: #ec4899;
+            margin-right: 0.4rem;
+        }
+        .image-matrix-box .url-input-row {
+            display: flex;
+            gap: 0.6rem;
+            flex-wrap: wrap;
+        }
+        .image-matrix-box .url-input-row input {
+            flex: 1;
+            min-width: 180px;
+            padding: 0.5rem 0.9rem;
+            border-radius: 60px;
+            border: 1px solid #d6e2f0;
+            font-size: 0.85rem;
+            background: white;
+        }
+        .image-matrix-box .url-input-row input:focus {
+            outline: none;
+            border-color: #ec4899;
+            box-shadow: 0 0 0 3px rgba(236, 72, 153, 0.15);
+        }
+        .image-matrix-box .btn-pink {
+            background: #ec4899;
+            color: white;
+            box-shadow: 0 4px 12px -4px #ec489970;
+        }
+        .image-matrix-box .btn-pink:hover {
+            background: #db2777;
+        }
+
+        /* Image Grid */
+        .image-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+        .image-card {
+            position: relative;
+            border-radius: 1rem;
+            overflow: hidden;
+            border: 2px solid #e3ebf5;
+            transition: transform 0.2s, box-shadow 0.2s;
+            cursor: pointer;
+            aspect-ratio: 4/3;
+            background: #f9fafb;
+        }
+        .image-card:hover {
+            transform: scale(1.02);
+            box-shadow: 0 8px 25px -8px rgba(0, 0, 0, 0.15);
+        }
+        .image-card img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transition: opacity 0.3s;
+        }
+        .image-card img.loading {
+            opacity: 0.4;
+        }
+        .image-card .image-overlay {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            padding: 0.5rem 0.6rem;
+            background: linear-gradient(transparent, rgba(0, 0, 0, 0.7));
+            color: white;
+            font-size: 0.7rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .image-card .image-overlay .image-label {
+            font-weight: 500;
+        }
+        .image-card .image-overlay .image-index {
+            background: rgba(255, 255, 255, 0.2);
+            padding: 0.1rem 0.4rem;
+            border-radius: 30px;
+            font-size: 0.6rem;
+        }
+        .image-card .no-image-placeholder {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            color: #9ca3af;
+            font-size: 0.75rem;
+        }
+        .image-card .no-image-placeholder i {
+            font-size: 2rem;
+            margin-bottom: 0.3rem;
+            opacity: 0.5;
+        }
+
+        /* Lightbox */
+        .lightbox {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.92);
+            justify-content: center;
+            align-items: center;
+        }
+        .lightbox.open {
+            display: flex;
+        }
+        .lightbox .lightbox-content {
+            max-width: 90%;
+            max-height: 85%;
+            position: relative;
+        }
+        .lightbox .lightbox-content img {
+            max-width: 100%;
+            max-height: 85vh;
+            border-radius: 0.5rem;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+        }
+        .lightbox .lightbox-caption {
+            color: white;
+            text-align: center;
+            padding: 1rem;
+            font-size: 0.9rem;
+        }
+        .lightbox .lightbox-close {
+            position: absolute;
+            top: -2.5rem;
+            right: 0;
+            color: white;
+            font-size: 2rem;
+            cursor: pointer;
+            background: none;
+            border: none;
+            transition: transform 0.2s;
+        }
+        .lightbox .lightbox-close:hover {
+            transform: scale(1.2);
+        }
+        .lightbox .lightbox-nav {
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            color: white;
+            font-size: 2.5rem;
+            cursor: pointer;
+            background: rgba(255, 255, 255, 0.1);
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 50%;
+            transition: background 0.2s;
+        }
+        .lightbox .lightbox-nav:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+        .lightbox .lightbox-nav.prev {
+            left: -4rem;
+        }
+        .lightbox .lightbox-nav.next {
+            right: -4rem;
+        }
+        @media (max-width: 700px) {
+            .lightbox .lightbox-nav.prev {
+                left: 0.5rem;
+            }
+            .lightbox .lightbox-nav.next {
+                right: 0.5rem;
+            }
+            .lightbox .lightbox-nav {
+                font-size: 1.5rem;
+                padding: 0.3rem 0.7rem;
+            }
+            .image-grid {
+                grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+            }
+        }
+
+        /* Image count badge */
+        .image-count-badge {
+            display: inline-block;
+            background: #fce7f3;
+            padding: 0.1rem 0.6rem;
+            border-radius: 30px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            color: #9d174d;
+            margin-left: 0.5rem;
         }
 
         /* ----- Responsive ----- */
@@ -880,7 +1110,7 @@
                         </div>
 
                         <!-- ============================================================ -->
-                        <!-- TRIP TICKETS ISSUED SECTION (WITH SEPARATE PLATE MAPPING) -->
+                        <!-- TRIP TICKETS ISSUED SECTION -->
                         <!-- ============================================================ -->
                         <div class="trip-tickets-section">
                             <div class="section-title">
@@ -936,6 +1166,40 @@
                         </div>
                         <!-- /TRIP TICKETS SECTION -->
 
+                        <!-- ============================================================ -->
+                        <!-- NEW: IMAGE GALLERY SECTION (Google Sheets Matrix) -->
+                        <!-- ============================================================ -->
+                        <div class="image-gallery-section">
+                            <div class="section-title">
+                                <i class="fas fa-images"></i> Scanned Images
+                                <span style="font-size:0.75rem; font-weight:400; color:#5f7d9c; margin-left:0.5rem;">
+                                    <i class="fas fa-arrows-left-right"></i> From Google Sheets Matrix (Plate × Month)
+                                </span>
+                            </div>
+
+                            <div class="image-matrix-box">
+                                <label><i class="fas fa-table"></i> Image Matrix CSV URL (Rows: Plates, Columns: Months, Cells: Image URLs)</label>
+                                <div class="url-input-row">
+                                    <input type="text" id="imageMatrixUrlInput" placeholder="https://docs.google.com/spreadsheets/d/e/.../pub?output=csv" />
+                                    <button class="btn btn-pink" id="loadImageMatrixBtn"><i class="fas fa-cloud-download-alt"></i> Load Images</button>
+                                    <button class="sample-link" id="loadImageMatrixSampleBtn" style="color:#ec4899;"><i class="fas fa-arrow-right"></i> use sample</button>
+                                </div>
+                                <div id="imageMatrixStatusMsg" class="status-msg" style="margin-top:0.3rem; font-size:0.8rem;">Paste the Image Matrix CSV link and click Load.</div>
+                            </div>
+
+                            <div id="imageGalleryResults">
+                                <div class="image-grid" id="imageGrid">
+                                    <div class="image-card">
+                                        <div class="no-image-placeholder">
+                                            <i class="fas fa-image"></i>
+                                            <span>No images loaded</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <!-- /IMAGE GALLERY SECTION -->
+
                     </div><!-- /drillResults -->
 
                     <div id="drillEmpty" class="drill-empty">Load transactions, then select a vehicle and month above.</div>
@@ -945,6 +1209,19 @@
         </div><!-- /tab-vehicles -->
 
     </div><!-- /dashboard -->
+
+    <!-- ============================================================ -->
+    <!-- LIGHTBOX MODAL -->
+    <!-- ============================================================ -->
+    <div id="imageLightbox" class="lightbox">
+        <button class="lightbox-close" id="lightboxClose">&times;</button>
+        <button class="lightbox-nav prev" id="lightboxPrev">&#10094;</button>
+        <button class="lightbox-nav next" id="lightboxNext">&#10095;</button>
+        <div class="lightbox-content">
+            <img id="lightboxImg" src="" alt="Scanned document" />
+            <div class="lightbox-caption" id="lightboxCaption"></div>
+        </div>
+    </div>
 
     <script>
         (function() {
@@ -1001,6 +1278,27 @@
 
             let tripTicketsRows = [];
             let tripTicketsLoaded = false;
+
+            // Image Matrix refs
+            const imageMatrixUrlInput = document.getElementById('imageMatrixUrlInput');
+            const loadImageMatrixBtn = document.getElementById('loadImageMatrixBtn');
+            const loadImageMatrixSampleBtn = document.getElementById('loadImageMatrixSampleBtn');
+            const imageMatrixStatusMsg = document.getElementById('imageMatrixStatusMsg');
+            const imageGrid = document.getElementById('imageGrid');
+
+            // Lightbox refs
+            const lightbox = document.getElementById('imageLightbox');
+            const lightboxImg = document.getElementById('lightboxImg');
+            const lightboxCaption = document.getElementById('lightboxCaption');
+            const lightboxClose = document.getElementById('lightboxClose');
+            const lightboxPrev = document.getElementById('lightboxPrev');
+            const lightboxNext = document.getElementById('lightboxNext');
+
+            // Image Matrix data
+            let imageMatrixData = {}; // { plate: { monthKey: [url1, url2, ...] } }
+            let imageMatrixLoaded = false;
+            let currentLightboxImages = [];
+            let currentLightboxIndex = 0;
 
             // ------------------------------------------------------------------
             // 3. TABS
@@ -1104,12 +1402,23 @@
                 return names[date.getMonth()] + ' ' + date.getFullYear();
             }
 
+            // Month key from display label (e.g., "Jan 2026" → "2026-01")
+            function monthKeyFromLabel(label) {
+                const parts = label.split(' ');
+                if (parts.length !== 2) return null;
+                const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+                const monthIndex = monthNames.indexOf(parts[0]);
+                if (monthIndex === -1) return null;
+                const year = parseInt(parts[1], 10);
+                if (isNaN(year)) return null;
+                return year + '-' + String(monthIndex + 1).padStart(2, '0');
+            }
+
             // ------------------------------------------------------------------
-            // 5. PLATE NORMALIZATION & MATCHING (SEPARATE FOR TRIP TICKETS)
+            // 5. PLATE NORMALIZATION & MATCHING
             // ------------------------------------------------------------------
             function normalizePlate(plate) {
                 if (!plate) return '';
-                // Remove all non-alphanumeric characters and convert to uppercase
                 return plate.toUpperCase().replace(/[^A-Z0-9]/g, '');
             }
 
@@ -1119,18 +1428,14 @@
                 const tPlate = tripPlate.toUpperCase().trim();
                 const fPlate = fleetPlate.toUpperCase().trim();
                 
-                // 1. Exact match
                 if (tPlate === fPlate) return 'exact';
                 
-                // 2. Normalized match (remove special characters)
                 const tNorm = normalizePlate(tPlate);
                 const fNorm = normalizePlate(fPlate);
                 if (tNorm === fNorm) return 'normalized';
                 
-                // 3. Partial match (one contains the other)
                 if (tNorm.includes(fNorm) || fNorm.includes(tNorm)) return 'partial';
                 
-                // 4. Try matching after removing spaces and dashes from both
                 const tClean = tPlate.replace(/[\s\-]/g, '');
                 const fClean = fPlate.replace(/[\s\-]/g, '');
                 if (tClean === fClean) return 'cleaned';
@@ -1579,6 +1884,9 @@
                     if (tripTicketsLoaded) {
                         updateTripTicketsDisplay();
                     }
+                    if (imageMatrixLoaded) {
+                        updateImageGallery();
+                    }
                 } catch (err) {
                     drillStatusMsg.className = 'status-msg error';
                     drillStatusMsg.innerHTML = `<i class="fas fa-exclamation-circle"></i> Error: ${err.message}`;
@@ -1781,6 +2089,9 @@
                 if (tripTicketsLoaded) {
                     updateTripTicketsDisplay();
                 }
+                if (imageMatrixLoaded) {
+                    updateImageGallery();
+                }
             }
 
             drillFetchBtn.addEventListener('click', loadDrillData);
@@ -1810,20 +2121,14 @@
 
                     const header = parseCSVRow(lines[0]);
                     
-                    // COLUMN MAPPINGS:
-                    // Col A = index 0 → Tracking Code
-                    // Col D = index 3 → Plate
-                    // Col F = index 5 → Destination
-                    // Col G = index 6 → Date
                     const idx = {
-                        trackingCode: 0,        // Col A
-                        plate: 3,               // Col D
-                        destination: 5,         // Col F
-                        date: 6,                // Col G
+                        trackingCode: 0,
+                        plate: 3,
+                        destination: 5,
+                        date: 6,
                         driver: header.findIndex(h => /driver|operator|name/i.test(h)),
                     };
 
-                    // Fallback: if the auto-detected positions don't have data, try to find by name
                     if (idx.plate === -1 || header.length <= idx.plate) {
                         idx.plate = header.findIndex(h => /plate|license|vehicle|unit/i.test(h));
                     }
@@ -1837,7 +2142,6 @@
                         idx.destination = header.findIndex(h => /destination|location|route|to/i.test(h));
                     }
 
-                    // Validate required columns exist
                     const required = ['plate', 'date'];
                     const missing = required.filter(k => idx[k] === -1 || idx[k] >= header.length);
                     if (missing.length > 0) {
@@ -1851,7 +2155,6 @@
 
                     for (let i = 1; i < lines.length; i++) {
                         const cols = parseCSVRow(lines[i]);
-                        // Store the raw plate from the Trip Tickets CSV (preserve original format)
                         const rawPlate = (cols[idx.plate] || '').trim();
                         const plate = rawPlate.toUpperCase();
                         const dateStr = (cols[idx.date] || '').trim();
@@ -1871,8 +2174,8 @@
                         parsedCount++;
                         tripTicketsRows.push({
                             date: dateObj,
-                            plate: plate,           // Store normalized plate for matching
-                            rawPlate: rawPlate,     // Keep original format for display
+                            plate: plate,
+                            rawPlate: rawPlate,
                             trackingCode: (cols[idx.trackingCode] || '').trim() || '—',
                             destination: (cols[idx.destination] || '').trim() || '—',
                             driver: idx.driver !== -1 && idx.driver < cols.length ? (cols[idx.driver] || '').trim() : '—',
@@ -1885,7 +2188,6 @@
 
                     tripTicketsLoaded = true;
                     
-                    // Build status message with debug info
                     let statusHTML = `<i class="fas fa-check-circle"></i> Loaded ${tripTicketsRows.length} trip tickets`;
                     if (skippedCount > 0) {
                         statusHTML += ` <span style="color:#f59e0b;">⚠️ ${skippedCount} rows skipped</span>`;
@@ -1935,20 +2237,17 @@
                     return;
                 }
 
-                // Get the month/year from the selected month key
                 const [year, month] = monthKey.split('-').map(Number);
                 const monthDate = new Date(year, month - 1, 1);
 
-                // Filter using SEPARATE plate matching logic
                 const matches = tripTicketsRows.filter(r => {
                     const dateMatch = r.date.getMonth() === monthDate.getMonth() &&
                         r.date.getFullYear() === monthDate.getFullYear();
                     
                     if (!dateMatch) return false;
                     
-                    // Use the separate plate matching function
                     const matchType = getPlateMatchType(r.plate, vehicle);
-                    r._matchType = matchType; // Store match type for display
+                    r._matchType = matchType;
                     return matchType !== 'no-match';
                 });
 
@@ -1958,10 +2257,8 @@
                     return;
                 }
 
-                // Sort by date
                 matches.sort((a, b) => a.date - b.date);
 
-                // Define match type labels with emojis
                 const matchLabels = {
                     'exact': '✅ Exact',
                     'normalized': '🔄 Normalized',
@@ -2000,13 +2297,252 @@
             // Update trip tickets when vehicle/month selection changes
             drillVehicleSelect.addEventListener('change', () => {
                 if (tripTicketsLoaded) updateTripTicketsDisplay();
+                if (imageMatrixLoaded) updateImageGallery();
             });
             drillMonthSelect.addEventListener('change', () => {
                 if (tripTicketsLoaded) updateTripTicketsDisplay();
+                if (imageMatrixLoaded) updateImageGallery();
             });
 
             // ------------------------------------------------------------------
-            // 11. AUTO-LOAD ON FIRST VISIT
+            // 11. IMAGE MATRIX (Google Sheets Matrix)
+            // ------------------------------------------------------------------
+            function parseImageMatrix(csvText) {
+                const lines = csvText.split(/\r?\n/).filter(l => l.trim() !== '');
+                if (lines.length < 2) throw new Error('Image matrix CSV appears to have no data rows.');
+
+                const header = parseCSVRow(lines[0]);
+                // First column should be "Plate" or similar, rest are month labels
+                const plateColIndex = 0;
+                const monthHeaders = header.slice(1).map(h => h.trim());
+                
+                const matrix = {};
+                let parsedCount = 0;
+
+                for (let i = 1; i < lines.length; i++) {
+                    const cols = parseCSVRow(lines[i]);
+                    const plate = (cols[plateColIndex] || '').trim().toUpperCase();
+                    if (!plate) continue;
+
+                    // Normalize plate for lookup
+                    const normPlate = normalizePlate(plate);
+                    matrix[normPlate] = {};
+                    matrix[normPlate]._originalPlate = plate;
+
+                    for (let m = 0; m < monthHeaders.length; m++) {
+                        const monthLabel = monthHeaders[m];
+                        const monthKey = monthKeyFromLabel(monthLabel);
+                        if (!monthKey) continue;
+
+                        const cellValue = (cols[m + 1] || '').trim();
+                        if (cellValue) {
+                            // Split by commas if multiple URLs
+                            const urls = cellValue.split(',').map(u => u.trim()).filter(u => u);
+                            if (urls.length > 0) {
+                                matrix[normPlate][monthKey] = urls;
+                                parsedCount++;
+                            }
+                        }
+                    }
+                }
+
+                return { matrix, monthHeaders };
+            }
+
+            async function loadImageMatrix() {
+                const url = imageMatrixUrlInput.value.trim();
+                if (!url) {
+                    imageMatrixStatusMsg.className = 'status-msg error';
+                    imageMatrixStatusMsg.innerHTML = '<i class="fas fa-exclamation-circle"></i> Please paste a valid CSV URL.';
+                    return;
+                }
+
+                imageMatrixStatusMsg.className = 'status-msg';
+                imageMatrixStatusMsg.innerHTML = '<span class="spinner"></span> Loading image matrix…';
+
+                try {
+                    const csvText = await fetchCSV(url);
+                    const { matrix, monthHeaders } = parseImageMatrix(csvText);
+                    
+                    imageMatrixData = matrix;
+                    imageMatrixLoaded = true;
+
+                    imageMatrixStatusMsg.className = 'status-msg success';
+                    const totalImages = Object.values(matrix).reduce((sum, plateData) => {
+                        return sum + Object.values(plateData).reduce((s, arr) => s + (Array.isArray(arr) ? arr.length : 0), 0);
+                    }, 0);
+                    imageMatrixStatusMsg.innerHTML = 
+                        `<i class="fas fa-check-circle"></i> Loaded ${Object.keys(matrix).length} vehicles, ${monthHeaders.length} months, ${totalImages} image references.`;
+
+                    // Update gallery if a vehicle is selected
+                    if (drillVehicleSelect.value && drillMonthSelect.value) {
+                        updateImageGallery();
+                    }
+
+                } catch (err) {
+                    imageMatrixStatusMsg.className = 'status-msg error';
+                    imageMatrixStatusMsg.innerHTML = `<i class="fas fa-exclamation-circle"></i> Error: ${err.message}`;
+                    console.error(err);
+                }
+            }
+
+            function updateImageGallery() {
+                const vehicle = drillVehicleSelect.value;
+                const monthKey = drillMonthSelect.value;
+
+                if (!imageMatrixLoaded || !imageMatrixData || Object.keys(imageMatrixData).length === 0) {
+                    imageGrid.innerHTML = `
+                        <div class="image-card">
+                            <div class="no-image-placeholder">
+                                <i class="fas fa-image"></i>
+                                <span>No image matrix loaded</span>
+                            </div>
+                        </div>
+                    `;
+                    return;
+                }
+
+                if (!vehicle || !monthKey) {
+                    imageGrid.innerHTML = `
+                        <div class="image-card">
+                            <div class="no-image-placeholder">
+                                <i class="fas fa-hand-pointer"></i>
+                                <span>Select a vehicle & month</span>
+                            </div>
+                        </div>
+                    `;
+                    return;
+                }
+
+                // Try to find images for this plate (using normalized match)
+                const normVehicle = normalizePlate(vehicle);
+                let plateData = null;
+                let matchedPlate = null;
+
+                // Try exact normalized match first
+                if (imageMatrixData[normVehicle]) {
+                    plateData = imageMatrixData[normVehicle];
+                    matchedPlate = normVehicle;
+                } else {
+                    // Try partial match
+                    for (const [key, data] of Object.entries(imageMatrixData)) {
+                        if (key.includes(normVehicle) || normVehicle.includes(key)) {
+                            plateData = data;
+                            matchedPlate = key;
+                            break;
+                        }
+                    }
+                }
+
+                if (!plateData) {
+                    imageGrid.innerHTML = `
+                        <div class="image-card">
+                            <div class="no-image-placeholder">
+                                <i class="fas fa-search"></i>
+                                <span>No images found for ${vehicle}</span>
+                            </div>
+                        </div>
+                    `;
+                    return;
+                }
+
+                // Get images for the selected month
+                const images = plateData[monthKey] || [];
+                const originalPlate = plateData._originalPlate || matchedPlate;
+
+                if (images.length === 0) {
+                    imageGrid.innerHTML = `
+                        <div class="image-card">
+                            <div class="no-image-placeholder">
+                                <i class="fas fa-calendar-times"></i>
+                                <span>No images for ${monthLabelOf(new Date(parseInt(monthKey.split('-')[0]), parseInt(monthKey.split('-')[1]) - 1, 1))}</span>
+                            </div>
+                        </div>
+                    `;
+                    return;
+                }
+
+                // Build image grid
+                imageGrid.innerHTML = images.map((url, index) => `
+                    <div class="image-card" data-url="${url}" data-index="${index}" data-total="${images.length}" onclick="openLightbox('${url}', '${vehicle} - ${monthLabelOf(new Date(parseInt(monthKey.split('-')[0]), parseInt(monthKey.split('-')[1]) - 1, 1))} (${index + 1}/${images.length})', ${index}, this)">
+                        <img src="${url}" alt="Image ${index + 1}" loading="lazy" 
+                             onerror="this.parentElement.querySelector('.no-image-placeholder').style.display='flex'; this.style.display='none';" />
+                        <div class="image-overlay">
+                            <span class="image-label">📄 Image ${index + 1}</span>
+                            <span class="image-index">${index + 1}/${images.length}</span>
+                        </div>
+                        <div class="no-image-placeholder" style="display:none;">
+                            <i class="fas fa-exclamation-triangle"></i>
+                            <span>Failed to load</span>
+                        </div>
+                    </div>
+                `).join('');
+
+                // Store images for lightbox navigation
+                currentLightboxImages = images.map(url => ({
+                    url: url,
+                    caption: `${vehicle} - ${monthLabelOf(new Date(parseInt(monthKey.split('-')[0]), parseInt(monthKey.split('-')[1]) - 1, 1))}`
+                }));
+            }
+
+            // ------------------------------------------------------------------
+            // 12. LIGHTBOX FUNCTIONS
+            // ------------------------------------------------------------------
+            function openLightbox(url, caption, index, element) {
+                if (!url) return;
+                lightbox.classList.add('open');
+                lightboxImg.src = url;
+                lightboxCaption.textContent = caption || 'Scanned document';
+                currentLightboxIndex = index || 0;
+                document.body.style.overflow = 'hidden';
+            }
+
+            function closeLightbox() {
+                lightbox.classList.remove('open');
+                document.body.style.overflow = '';
+            }
+
+            function navigateLightbox(direction) {
+                if (currentLightboxImages.length === 0) return;
+                currentLightboxIndex = (currentLightboxIndex + direction + currentLightboxImages.length) % currentLightboxImages.length;
+                const img = currentLightboxImages[currentLightboxIndex];
+                lightboxImg.src = img.url;
+                lightboxCaption.textContent = img.caption + ` (${currentLightboxIndex + 1}/${currentLightboxImages.length})`;
+            }
+
+            // Lightbox event listeners
+            lightboxClose.addEventListener('click', closeLightbox);
+            lightbox.addEventListener('click', (e) => {
+                if (e.target === lightbox) closeLightbox();
+            });
+            lightboxPrev.addEventListener('click', (e) => { e.stopPropagation();
+                navigateLightbox(-1); });
+            lightboxNext.addEventListener('click', (e) => { e.stopPropagation();
+                navigateLightbox(1); });
+            document.addEventListener('keydown', (e) => {
+                if (!lightbox.classList.contains('open')) return;
+                if (e.key === 'Escape') closeLightbox();
+                if (e.key === 'ArrowLeft') navigateLightbox(-1);
+                if (e.key === 'ArrowRight') navigateLightbox(1);
+            });
+
+            // Expose lightbox to global scope for onclick
+            window.openLightbox = openLightbox;
+
+            // Image Matrix event listeners
+            loadImageMatrixBtn.addEventListener('click', loadImageMatrix);
+            loadImageMatrixSampleBtn.addEventListener('click', () => {
+                imageMatrixUrlInput.value =
+                    'https://docs.google.com/spreadsheets/d/e/2PACX-1vQOiY9iLl8uqDwtOIqJSl8c0yue4XKNQ62X3guYta0l-wlNM1cHQ1XLE8SGmDJN2bYp-fSdHDaMdyrg/pub?gid=1515574364&single=true&output=csv';
+                loadImageMatrix();
+            });
+            imageMatrixUrlInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') { e.preventDefault();
+                    loadImageMatrix(); }
+            });
+
+            // ------------------------------------------------------------------
+            // 13. AUTO-LOAD ON FIRST VISIT
             // ------------------------------------------------------------------
             window.addEventListener('load', () => {
                 csvUrlInput.value =
@@ -2017,12 +2553,18 @@
                     'https://docs.google.com/spreadsheets/d/e/2PACX-1vSJF9zFlZ6Cf_wqIDALZHjVPCdjoo9xCNa10G-8r6TROtED1jNPhAmDEV7ETuzBc4sybYrPfCdOC_pi/pub?gid=0&single=true&output=csv';
                 setTimeout(() => loadDrillData(), 400);
 
-                // Auto-load trip tickets with the updated URL
                 setTimeout(() => {
                     tripTicketsUrlInput.value =
                         'https://docs.google.com/spreadsheets/d/e/2PACX-1vQOiY9iLl8uqDwtOIqJSl8c0yue4XKNQ62X3guYta0l-wlNM1cHQ1XLE8SGmDJN2bYp-fSdHDaMdyrg/pub?gid=1515574364&single=true&output=csv';
                     loadTripTickets();
                 }, 600);
+
+                // Auto-load image matrix sample
+                setTimeout(() => {
+                    imageMatrixUrlInput.value =
+                        'https://docs.google.com/spreadsheets/d/e/2PACX-1vQOiY9iLl8uqDwtOIqJSl8c0yue4XKNQ62X3guYta0l-wlNM1cHQ1XLE8SGmDJN2bYp-fSdHDaMdyrg/pub?gid=1515574364&single=true&output=csv';
+                    loadImageMatrix();
+                }, 800);
             });
 
         })();

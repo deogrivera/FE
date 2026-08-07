@@ -2307,6 +2307,32 @@
             // ------------------------------------------------------------------
             // 11. IMAGE MATRIX (Google Sheets Matrix)
             // ------------------------------------------------------------------
+            function toDirectImageUrl(rawUrl) {
+                const url = (rawUrl || '').trim();
+                if (!url) return url;
+
+                // Already a direct/known-good image host — leave as is
+                if (/lh3\.googleusercontent\.com|drive\.google\.com\/uc\?|drive\.google\.com\/thumbnail/.test(url)) {
+                    return url;
+                }
+
+                // Match common Google Drive share link formats and pull out the file ID
+                let id = null;
+                let m = url.match(/drive\.google\.com\/file\/d\/([a-zA-Z0-9_-]+)/);
+                if (m) id = m[1];
+                if (!id) {
+                    m = url.match(/[?&]id=([a-zA-Z0-9_-]+)/);
+                    if (m && url.includes('drive.google.com')) id = m[1];
+                }
+
+                if (id) {
+                    // Works reliably as an <img src> for files shared "Anyone with the link"
+                    return `https://lh3.googleusercontent.com/d/${id}`;
+                }
+
+                return url;
+            }
+
             function parseImageMatrix(csvText) {
                 const lines = csvText.split(/\r?\n/).filter(l => l.trim() !== '');
                 if (lines.length < 2) throw new Error('Image matrix CSV appears to have no data rows.');
@@ -2337,7 +2363,7 @@
                         const cellValue = (cols[m + 1] || '').trim();
                         if (cellValue) {
                             // Split by commas if multiple URLs
-                            const urls = cellValue.split(',').map(u => u.trim()).filter(u => u);
+                            const urls = cellValue.split(',').map(u => toDirectImageUrl(u.trim())).filter(u => u);
                             if (urls.length > 0) {
                                 matrix[normPlate][monthKey] = urls;
                                 parsedCount++;

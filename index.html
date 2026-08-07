@@ -477,7 +477,7 @@
         }
         .drill-trend-wrapper {
             position: relative;
-            height: 180px;
+            height: 200px;
             margin: 0.5rem 0 1.5rem;
         }
         .drill-empty {
@@ -485,6 +485,20 @@
             font-style: italic;
             padding: 1.5rem;
             text-align: center;
+        }
+
+        /* ----- Chart legend for drill trend ----- */
+        .drill-chart-legend {
+            display: flex;
+            gap: 1.5rem;
+            font-size: 0.8rem;
+            color: #4f6f8f;
+            margin-bottom: 0.5rem;
+        }
+        .drill-chart-legend span {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
         }
 
         /* ----- Responsive ----- */
@@ -508,6 +522,9 @@
             }
             .stat-value {
                 font-size: 1.4rem;
+            }
+            .drill-trend-wrapper {
+                height: 160px;
             }
         }
 
@@ -703,6 +720,11 @@
 
                         <div class="chart-header" style="margin-top:0.5rem;">
                             <h2 style="font-size:1rem;"><i class="fas fa-chart-bar"></i> Monthly Trend for This Vehicle</h2>
+                            <div class="drill-chart-legend">
+                                <span><i class="fas fa-square" style="color:#2563eb;"></i> Liters</span>
+                                <span><i class="fas fa-circle" style="color:#f97316;"></i> Cost (PHP)</span>
+                                <span style="font-size:0.7rem; color:#7a94b2;"><i class="fas fa-arrow-right"></i> Selected month highlighted</span>
+                            </div>
                         </div>
                         <div class="drill-trend-wrapper">
                             <canvas id="drillTrendChart"></canvas>
@@ -780,7 +802,6 @@
                     this.classList.add('active');
                     document.getElementById('tab-' + this.dataset.tab).classList.add('active');
 
-                    // resize charts after tab switch
                     setTimeout(() => {
                         if (fuelChart) fuelChart.resize();
                         if (fleetChart) fleetChart.resize();
@@ -913,7 +934,6 @@
                     }
                 }
 
-                // preview table
                 previewBody.innerHTML = '';
                 if (months.length === 0) {
                     previewBody.innerHTML =
@@ -1189,7 +1209,7 @@
                     fetchAndProcess(); } });
 
             // ------------------------------------------------------------------
-            // 8. VEHICLE DRILL-DOWN (raw transaction data)
+            // 8. VEHICLE DRILL-DOWN (raw transaction data) with ENHANCED CHART
             // ------------------------------------------------------------------
             function parseDrillDate(raw) {
                 if (!raw) return null;
@@ -1340,24 +1360,30 @@
                     </tr>
                 `).join('');
 
-                // trend chart
+                // ---- ENHANCED TREND CHART: Liters + Cost ----
                 const vehicleRows = drillRows.filter(r => r.vehicle === vehicle);
                 const byMonth = new Map();
+                const byMonthCost = new Map();
+
                 vehicleRows.forEach(r => {
                     const key = monthKeyOf(r.date);
                     byMonth.set(key, (byMonth.get(key) || 0) + r.quantity);
+                    byMonthCost.set(key, (byMonthCost.get(key) || 0) + r.amount);
                 });
+
                 const trendKeys = Array.from(byMonth.keys()).sort();
                 const trendLabels = trendKeys.map(k => {
                     const [y, m] = k.split('-');
                     return monthLabelOf(new Date(parseInt(y), parseInt(m) - 1, 1));
                 });
                 const trendData = trendKeys.map(k => byMonth.get(k));
+                const trendCostData = trendKeys.map(k => byMonthCost.get(k));
                 const trendColors = trendKeys.map(k => k === monthKey ? '#f97316' : '#2563eb');
 
                 if (drillTrendChart) { drillTrendChart.destroy();
                     drillTrendChart = null; }
                 const ctx = document.getElementById('drillTrendChart').getContext('2d');
+
                 drillTrendChart = new Chart(ctx, {
                     type: 'bar',
                     data: {
@@ -1365,33 +1391,112 @@
                         datasets: [{
                             label: 'Liters',
                             data: trendData,
-                            backgroundColor: trendColors,
+                            backgroundColor: trendColors.map(c => c === '#f97316' ?
+                                'rgba(249, 115, 22, 0.8)' :
+                                'rgba(37, 99, 235, 0.7)'
+                            ),
+                            borderColor: trendColors,
+                            borderWidth: 2,
                             borderRadius: 6,
-                            barPercentage: 0.6,
+                            barPercentage: 0.5,
+                            yAxisID: 'yLiters',
+                            order: 1
+                        }, {
+                            label: 'Cost (PHP)',
+                            data: trendCostData,
+                            type: 'line',
+                            borderColor: '#f97316',
+                            backgroundColor: 'rgba(249, 115, 22, 0.1)',
+                            borderWidth: 3,
+                            pointBackgroundColor: '#f97316',
+                            pointBorderColor: 'white',
+                            pointBorderWidth: 2,
+                            pointRadius: 6,
+                            pointHoverRadius: 8,
+                            tension: 0.3,
+                            fill: true,
+                            yAxisID: 'yCost',
+                            order: 0
                         }]
                     },
                     options: {
                         responsive: true,
                         maintainAspectRatio: false,
+                        interaction: { mode: 'index', intersect: false },
                         plugins: {
-                            legend: { display: false },
+                            legend: {
+                                labels: {
+                                    usePointStyle: true,
+                                    boxWidth: 8,
+                                    font: { weight: '500', size: 11 },
+                                    padding: 16
+                                }
+                            },
                             tooltip: {
                                 callbacks: {
-                                    label: function(context) { return formatNumber(context.parsed.y, 1) +
-                                            ' L'; }
+                                    label: function(context) {
+                                        let label = context.dataset.label || '';
+                                        let value = context.parsed.y;
+                                        if (context.datasetIndex === 1) {
+                                            return label + ': ₱' + formatNumber(value, 2);
+                                        }
+                                        return label + ': ' + formatNumber(value, 1) + ' L';
+                                    }
                                 }
                             },
                             datalabels: {
-                                display: true,
-                                color: '#334155',
+                                display: function(context) {
+                                    return context.datasetIndex === 0 && context.dataset.data[context
+                                        .dataIndex] > 0;
+                                },
+                                color: function(context) {
+                                    return context.dataIndex === context.dataset.data.length - 1 ?
+                                        '#f97316' : '#2563eb';
+                                },
                                 font: { weight: 'bold', size: 9 },
                                 anchor: 'end',
                                 align: 'top',
-                                formatter: function(value) { return formatNumber(value, 0); }
+                                offset: 2,
+                                formatter: function(value) {
+                                    return formatNumber(value, 0);
+                                }
                             }
                         },
                         scales: {
-                            y: { beginAtZero: true, grid: { color: 'rgba(0,0,0,0.05)' } }
+                            yLiters: {
+                                type: 'linear',
+                                display: true,
+                                position: 'left',
+                                grid: { drawOnChartArea: false },
+                                title: {
+                                    display: true,
+                                    text: 'Liters',
+                                    color: '#2563eb',
+                                    font: { weight: '500', size: 10 }
+                                },
+                                ticks: {
+                                    callback: function(value) {
+                                        return formatNumber(value, 0);
+                                    }
+                                }
+                            },
+                            yCost: {
+                                type: 'linear',
+                                display: true,
+                                position: 'right',
+                                grid: { drawOnChartArea: false },
+                                title: {
+                                    display: true,
+                                    text: 'Cost (PHP)',
+                                    color: '#f97316',
+                                    font: { weight: '500', size: 10 }
+                                },
+                                ticks: {
+                                    callback: function(value) {
+                                        return '₱' + formatNumber(value, 0);
+                                    }
+                                }
+                            }
                         }
                     }
                 });
@@ -1414,7 +1519,6 @@
 
                 drillCsvUrlInput.value =
                     'https://docs.google.com/spreadsheets/d/e/2PACX-1vSJF9zFlZ6Cf_wqIDALZHjVPCdjoo9xCNa10G-8r6TROtED1jNPhAmDEV7ETuzBc4sybYrPfCdOC_pi/pub?gid=0&single=true&output=csv';
-                // optionally auto-load drill data too
                 setTimeout(() => loadDrillData(), 400);
             });
 

@@ -2311,18 +2311,25 @@
                 const url = (rawUrl || '').trim();
                 if (!url) return url;
 
-                // Already a direct/known-good image host — leave as is
-                if (/lh3\.googleusercontent\.com|drive\.google\.com\/uc\?|drive\.google\.com\/thumbnail/.test(url)) {
+                // Already on the reliable host — leave as is
+                if (/lh3\.googleusercontent\.com/.test(url)) {
                     return url;
                 }
 
-                // Match common Google Drive share link formats and pull out the file ID
+                // Not a Drive link at all (e.g. Imgur, S3, direct .jpg) — leave as is
+                if (!/drive\.google\.com/.test(url)) {
+                    return url;
+                }
+
+                // Match common Google Drive link formats and pull out the file ID
+                // Covers: /file/d/{id}/view, uc?export=view&id={id}, uc?id={id},
+                // thumbnail?id={id}, open?id={id}
                 let id = null;
                 let m = url.match(/drive\.google\.com\/file\/d\/([a-zA-Z0-9_-]+)/);
                 if (m) id = m[1];
                 if (!id) {
                     m = url.match(/[?&]id=([a-zA-Z0-9_-]+)/);
-                    if (m && url.includes('drive.google.com')) id = m[1];
+                    if (m) id = m[1];
                 }
 
                 if (id) {

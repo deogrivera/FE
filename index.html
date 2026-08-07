@@ -1,1030 +1,1424 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Fuel Dashboard · Monthly Liters, Cost & Fleet Cards</title>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Fuel Dashboard · Liters, Cost &amp; Fleet Cards</title>
     <!-- Chart.js -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js">
+    </script>
     <!-- Chart.js Data Labels Plugin -->
-    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js">
+    </script>
     <!-- Font Awesome -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" />
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', sans-serif; }
-        body { background: #f2f6fc; display: flex; justify-content: center; padding: 2rem 1.5rem; min-height: 100vh; }
-        .dashboard { max-width: 1400px; width: 100%; }
+        /* ----- Reset & base ----- */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+        }
+        body {
+            background: #f2f6fc;
+            display: flex;
+            justify-content: center;
+            padding: 1.5rem 1rem 3rem;
+            min-height: 100vh;
+        }
+        .dashboard {
+            max-width: 1440px;
+            width: 100%;
+        }
 
-        .header { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; margin-bottom: 2rem; }
-        .header h1 { font-size: 2rem; font-weight: 700; color: #0b2a41; display: flex; align-items: center; gap: 0.75rem; }
-        .header h1 i { color: #2563eb; }
-        .header .sub { background: #e6edf7; padding: 0.5rem 1.2rem; border-radius: 40px; font-weight: 500; color: #3d5a78; }
+        /* ----- Header ----- */
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            margin-bottom: 1.5rem;
+        }
+        .header h1 {
+            font-size: 2rem;
+            font-weight: 700;
+            color: #0b2a41;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+        .header h1 i {
+            color: #2563eb;
+        }
+        .header .sub {
+            background: #e6edf7;
+            padding: 0.4rem 1.2rem;
+            border-radius: 40px;
+            font-weight: 500;
+            color: #3d5a78;
+            font-size: 0.9rem;
+        }
 
-        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 1.2rem; margin-bottom: 2rem; }
-        .stat-card { background: white; padding: 1.2rem 1.5rem; border-radius: 1.8rem; border: 1px solid #e3ebf5; box-shadow: 0 4px 12px -8px rgba(0,20,30,0.06); }
-        .stat-label { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.03em; color: #5f7d9c; display: flex; align-items: center; gap: 0.4rem; }
-        .stat-value { font-size: 1.9rem; font-weight: 700; color: #0b2a41; margin-top: 0.15rem; }
-        .stat-sub { font-size: 0.8rem; color: #4f6f8f; margin-top: 0.1rem; }
+        /* ----- Tabs ----- */
+        .tab-bar {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.25rem;
+            border-bottom: 2px solid #e3ebf5;
+            margin-bottom: 2rem;
+            background: white;
+            border-radius: 1.5rem 1.5rem 0 0;
+            padding: 0.25rem 0.5rem 0;
+        }
+        .tab-btn {
+            padding: 0.7rem 1.6rem;
+            border: none;
+            background: transparent;
+            font-weight: 600;
+            font-size: 0.95rem;
+            color: #5f7d9c;
+            cursor: pointer;
+            border-bottom: 3px solid transparent;
+            transition: all 0.2s;
+            border-radius: 1.5rem 1.5rem 0 0;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        .tab-btn i {
+            font-size: 1rem;
+        }
+        .tab-btn:hover {
+            color: #0b2a41;
+            background: #f0f6fe;
+        }
+        .tab-btn.active {
+            color: #0b2a41;
+            border-bottom-color: #2563eb;
+            background: #f9fcff;
+        }
+        .tab-pane {
+            display: none;
+            animation: fadeUp 0.3s ease;
+        }
+        .tab-pane.active {
+            display: block;
+        }
+        @keyframes fadeUp {
+            0% {
+                opacity: 0.4;
+                transform: translateY(8px);
+            }
+            100% {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
 
-        .chart-container { 
-            background: white; 
-            border-radius: 2rem; 
-            padding: 1.8rem; 
-            border: 1px solid #e3ebf5; 
-            box-shadow: 0 8px 20px -12px rgba(0,20,30,0.06);
+        /* ----- Sticky stats (only on Overview) ----- */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+            gap: 1rem;
+            margin-bottom: 2rem;
+            background: #f2f6fc;
+            padding: 0.25rem 0;
+        }
+        .stat-card {
+            background: white;
+            padding: 1rem 1.2rem;
+            border-radius: 1.6rem;
+            border: 1px solid #e3ebf5;
+            box-shadow: 0 4px 12px -8px rgba(0, 20, 30, 0.06);
+        }
+        .stat-label {
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: #5f7d9c;
+            display: flex;
+            align-items: center;
+            gap: 0.3rem;
+        }
+        .stat-value {
+            font-size: 1.8rem;
+            font-weight: 700;
+            color: #0b2a41;
+            margin-top: 0.1rem;
+        }
+        .stat-sub {
+            font-size: 0.75rem;
+            color: #4f6f8f;
+            margin-top: 0.05rem;
+        }
+        .stat-card.highlight {
+            background: #f0fdf4;
+            border-color: #bbf7d0;
+        }
+        .stat-card.highlight .stat-value {
+            color: #16a34a;
+        }
+
+        /* ----- Chart containers ----- */
+        .chart-container {
+            background: white;
+            border-radius: 2rem;
+            padding: 1.5rem 1.5rem 1rem;
+            border: 1px solid #e3ebf5;
+            box-shadow: 0 8px 20px -12px rgba(0, 20, 30, 0.06);
             margin-bottom: 2rem;
         }
-        .chart-header { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; margin-bottom: 0.5rem; }
-        .chart-header h2 { font-size: 1.2rem; font-weight: 600; color: #1a3652; display: flex; align-items: center; gap: 0.5rem; }
-        .chart-header h2 i { color: #2563eb; }
-        .chart-wrapper { position: relative; height: 300px; margin-top: 0.5rem; }
+        .chart-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            margin-bottom: 0.25rem;
+        }
+        .chart-header h2 {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: #1a3652;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        .chart-header h2 i {
+            color: #2563eb;
+        }
+        .chart-wrapper {
+            position: relative;
+            height: 280px;
+            margin-top: 0.25rem;
+        }
 
-        .data-section { background: white; border-radius: 2rem; border: 1px solid #e3ebf5; overflow: hidden; }
-        .data-header { background: #f9fcff; padding: 1rem 1.8rem; border-bottom: 1px solid #e3ebf5; display: flex; justify-content: space-between; flex-wrap: wrap; align-items: center; }
-        .data-header h3 { font-weight: 600; color: #1f3b57; display: flex; align-items: center; gap: 0.5rem; }
-        .data-header h3 i { color: #2563eb; }
-        .data-body { padding: 1.5rem 1.8rem; }
+        /* ----- Data sections (shared) ----- */
+        .data-section {
+            background: white;
+            border-radius: 2rem;
+            border: 1px solid #e3ebf5;
+            overflow: hidden;
+            margin-bottom: 2rem;
+        }
+        .data-header {
+            background: #f9fcff;
+            padding: 0.9rem 1.8rem;
+            border-bottom: 1px solid #e3ebf5;
+            display: flex;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+        .data-header h3 {
+            font-weight: 600;
+            color: #1f3b57;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 1rem;
+        }
+        .data-header h3 i {
+            color: #2563eb;
+        }
+        .data-body {
+            padding: 1.5rem 1.8rem;
+        }
 
-        .csv-url-box { background: #f0f6fe; border-radius: 1.2rem; padding: 1rem 1.5rem; margin-bottom: 1.5rem; border: 1px solid #d6e2f0; }
-        .csv-url-box label { font-weight: 600; color: #1f3b57; display: block; margin-bottom: 0.4rem; font-size: 0.9rem; }
-        .csv-url-box label i { color: #2563eb; margin-right: 0.5rem; }
-        .url-input-row { display: flex; gap: 0.8rem; flex-wrap: wrap; }
-        .url-input-row input { flex: 1; min-width: 200px; padding: 0.6rem 1rem; border-radius: 60px; border: 1px solid #d6e2f0; font-size: 0.9rem; background: white; }
-        .url-input-row input:focus { outline: none; border-color: #2563eb; box-shadow: 0 0 0 3px rgba(37,99,235,0.15); }
+        /* ----- CSV input box ----- */
+        .csv-url-box {
+            background: #f0f6fe;
+            border-radius: 1.2rem;
+            padding: 1rem 1.5rem;
+            margin-bottom: 1.2rem;
+            border: 1px solid #d6e2f0;
+        }
+        .csv-url-box label {
+            font-weight: 600;
+            color: #1f3b57;
+            display: block;
+            margin-bottom: 0.4rem;
+            font-size: 0.9rem;
+        }
+        .csv-url-box label i {
+            color: #2563eb;
+            margin-right: 0.5rem;
+        }
+        .url-input-row {
+            display: flex;
+            gap: 0.8rem;
+            flex-wrap: wrap;
+        }
+        .url-input-row input {
+            flex: 1;
+            min-width: 200px;
+            padding: 0.6rem 1rem;
+            border-radius: 60px;
+            border: 1px solid #d6e2f0;
+            font-size: 0.9rem;
+            background: white;
+        }
+        .url-input-row input:focus {
+            outline: none;
+            border-color: #2563eb;
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+        }
 
-        .action-row { display: flex; gap: 0.8rem; flex-wrap: wrap; align-items: center; margin-top: 0.5rem; }
-        .btn { background: #eef3f9; border: none; padding: 0.6rem 1.8rem; border-radius: 60px; font-weight: 600; font-size: 0.9rem; color: #1f3b57; cursor: pointer; display: inline-flex; align-items: center; gap: 0.5rem; border: 1px solid transparent; }
-        .btn-primary { background: #2563eb; color: white; box-shadow: 0 4px 12px -4px #2563eb70; }
-        .btn-primary:hover { background: #1d4ed8; transform: scale(1.01); }
-        .btn-secondary { background: #e6edf7; }
-        .btn-secondary:hover { background: #d5e0ee; }
-        .sample-link { color: #2563eb; cursor: pointer; font-weight: 500; font-size: 0.85rem; }
-        .sample-link:hover { text-decoration: underline; }
+        .btn {
+            background: #eef3f9;
+            border: none;
+            padding: 0.55rem 1.8rem;
+            border-radius: 60px;
+            font-weight: 600;
+            font-size: 0.9rem;
+            color: #1f3b57;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            border: 1px solid transparent;
+            transition: 0.15s;
+        }
+        .btn-primary {
+            background: #2563eb;
+            color: white;
+            box-shadow: 0 4px 12px -4px #2563eb70;
+        }
+        .btn-primary:hover {
+            background: #1d4ed8;
+            transform: scale(1.01);
+        }
+        .btn-secondary {
+            background: #e6edf7;
+        }
+        .btn-secondary:hover {
+            background: #d5e0ee;
+        }
+        .btn-sm {
+            padding: 0.35rem 1.2rem;
+            font-size: 0.8rem;
+        }
+        .sample-link {
+            color: #2563eb;
+            cursor: pointer;
+            font-weight: 500;
+            font-size: 0.85rem;
+            background: transparent;
+            border: none;
+            padding: 0 0.5rem;
+        }
+        .sample-link:hover {
+            text-decoration: underline;
+        }
 
-        .status-msg { font-size: 0.85rem; color: #4f6f8f; padding: 0.3rem 0; }
-        .status-msg.error { color: #dc2626; }
-        .status-msg.success { color: #16a34a; }
+        .status-msg {
+            font-size: 0.85rem;
+            color: #4f6f8f;
+            padding: 0.3rem 0;
+        }
+        .status-msg.error {
+            color: #dc2626;
+        }
+        .status-msg.success {
+            color: #16a34a;
+        }
+        .spinner {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 2px solid #e0e7ef;
+            border-top-color: #2563eb;
+            border-radius: 50%;
+            animation: spin 0.6s linear infinite;
+            margin-right: 0.5rem;
+        }
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
 
-        .preview-table { margin-top: 1.5rem; border-radius: 1.2rem; overflow-x: auto; border: 1px solid #e3ebf5; }
-        .preview-table table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
-        .preview-table th { text-align: left; padding: 0.6rem 1rem; background: #f7faff; color: #1f3b57; border-bottom: 1px solid #e3ebf5; }
-        .preview-table td { padding: 0.6rem 1rem; border-bottom: 1px solid #f0f4fa; color: #1d334a; }
-        .preview-table tr:last-child td { border-bottom: none; }
-        .empty-message { color: #7a94b2; font-style: italic; padding: 0.8rem 1rem; }
-        .month-tag { display: inline-block; background: #eef4ff; padding: 0.1rem 0.6rem; border-radius: 30px; font-size: 0.7rem; font-weight: 600; color: #1e4a7a; }
+        /* ----- Preview table ----- */
+        .preview-table {
+            margin-top: 1.2rem;
+            border-radius: 1.2rem;
+            overflow-x: auto;
+            border: 1px solid #e3ebf5;
+        }
+        .preview-table table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.85rem;
+        }
+        .preview-table th {
+            text-align: left;
+            padding: 0.6rem 1rem;
+            background: #f7faff;
+            color: #1f3b57;
+            border-bottom: 1px solid #e3ebf5;
+        }
+        .preview-table td {
+            padding: 0.6rem 1rem;
+            border-bottom: 1px solid #f0f4fa;
+            color: #1d334a;
+        }
+        .preview-table tr:last-child td {
+            border-bottom: none;
+        }
+        .empty-message {
+            color: #7a94b2;
+            font-style: italic;
+            padding: 0.8rem 1rem;
+        }
+        .month-tag {
+            display: inline-block;
+            background: #eef4ff;
+            padding: 0.1rem 0.6rem;
+            border-radius: 30px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            color: #1e4a7a;
+        }
 
-        .spinner { display: inline-block; width: 16px; height: 16px; border: 2px solid #e0e7ef; border-top-color: #2563eb; border-radius: 50%; animation: spin 0.6s linear infinite; margin-right: 0.5rem; }
-        @keyframes spin { to { transform: rotate(360deg); } }
+        /* ----- Debug ----- */
+        .debug-info {
+            background: #f8fafc;
+            border-radius: 0.8rem;
+            padding: 0.8rem 1.2rem;
+            margin-top: 0.8rem;
+            font-size: 0.8rem;
+            color: #4b6a8a;
+            border: 1px solid #e2e8f0;
+            display: none;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        .debug-info.show {
+            display: block;
+        }
+        .debug-info code {
+            background: #eef2f6;
+            padding: 0.1rem 0.4rem;
+            border-radius: 4px;
+            font-size: 0.75rem;
+        }
 
-        .debug-info { background: #f8fafc; border-radius: 0.8rem; padding: 0.8rem 1.2rem; margin-top: 0.8rem; font-size: 0.8rem; color: #4b6a8a; border: 1px solid #e2e8f0; display: none; max-height: 300px; overflow-y: auto; }
-        .debug-info.show { display: block; }
-        .debug-info code { background: #eef2f6; padding: 0.1rem 0.4rem; border-radius: 4px; font-size: 0.75rem; }
+        /* ----- Column legend ----- */
+        .column-legend {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem 1.5rem;
+            font-size: 0.8rem;
+            color: #4b6a8a;
+            margin-top: 0.3rem;
+        }
+        .column-legend span {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.3rem;
+        }
+        .column-legend .liters-col {
+            color: #2563eb;
+            font-weight: 600;
+        }
+        .column-legend .cost-col {
+            color: #f97316;
+            font-weight: 600;
+        }
+        .column-legend .fleet-col {
+            color: #22c55e;
+            font-weight: 600;
+        }
 
-        .column-legend { display: flex; flex-wrap: wrap; gap: 0.5rem 1.5rem; font-size: 0.8rem; color: #4b6a8a; margin-top: 0.3rem; }
-        .column-legend span { display: inline-flex; align-items: center; gap: 0.3rem; }
-        .column-legend .liters-col { color: #2563eb; font-weight: 600; }
-        .column-legend .cost-col { color: #f97316; font-weight: 600; }
-        .column-legend .fleet-col { color: #22c55e; font-weight: 600; }
+        /* ----- Drill-down ----- */
+        .drill-selectors {
+            display: flex;
+            gap: 0.8rem;
+            flex-wrap: wrap;
+            align-items: center;
+            margin: 0.5rem 0 1rem;
+        }
+        .drill-selectors select {
+            padding: 0.6rem 1rem;
+            border-radius: 60px;
+            border: 1px solid #d6e2f0;
+            font-size: 0.9rem;
+            background: white;
+            min-width: 160px;
+        }
+        .drill-selectors select:focus {
+            outline: none;
+            border-color: #2563eb;
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+        }
+        .drill-mini-stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+            gap: 1rem;
+            margin: 1rem 0 1.2rem;
+        }
+        .drill-mini-card {
+            background: #f9fcff;
+            border: 1px solid #e3ebf5;
+            border-radius: 1.2rem;
+            padding: 0.8rem 1rem;
+        }
+        .drill-mini-label {
+            font-size: 0.65rem;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            color: #5f7d9c;
+        }
+        .drill-mini-value {
+            font-size: 1.2rem;
+            font-weight: 700;
+            color: #0b2a41;
+            margin-top: 0.05rem;
+        }
+        .drill-trend-wrapper {
+            position: relative;
+            height: 180px;
+            margin: 0.5rem 0 1.5rem;
+        }
+        .drill-empty {
+            color: #7a94b2;
+            font-style: italic;
+            padding: 1.5rem;
+            text-align: center;
+        }
 
-        .ratio-badge { display: inline-block; background: #f0fdf4; padding: 0.2rem 0.8rem; border-radius: 30px; font-size: 0.7rem; font-weight: 600; color: #16a34a; border: 1px solid #bbf7d0; }
+        /* ----- Responsive ----- */
+        @media (max-width: 700px) {
+            .data-body {
+                padding: 1rem;
+            }
+            .chart-wrapper {
+                height: 220px;
+            }
+            .tab-btn {
+                padding: 0.5rem 1rem;
+                font-size: 0.85rem;
+            }
+            .header h1 {
+                font-size: 1.5rem;
+            }
+            .stats-grid {
+                grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+                gap: 0.7rem;
+            }
+            .stat-value {
+                font-size: 1.4rem;
+            }
+        }
 
-        /* Vehicle Drill-Down */
-        .drill-selectors { display: flex; gap: 0.8rem; flex-wrap: wrap; align-items: center; margin-top: 0.5rem; }
-        .drill-selectors select { padding: 0.6rem 1rem; border-radius: 60px; border: 1px solid #d6e2f0; font-size: 0.9rem; background: white; min-width: 180px; }
-        .drill-selectors select:focus { outline: none; border-color: #2563eb; box-shadow: 0 0 0 3px rgba(37,99,235,0.15); }
-        .drill-mini-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 1rem; margin: 1.2rem 0; }
-        .drill-mini-card { background: #f9fcff; border: 1px solid #e3ebf5; border-radius: 1.2rem; padding: 0.9rem 1.1rem; }
-        .drill-mini-label { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.03em; color: #5f7d9c; }
-        .drill-mini-value { font-size: 1.3rem; font-weight: 700; color: #0b2a41; margin-top: 0.1rem; }
-        .drill-trend-wrapper { position: relative; height: 200px; margin: 1rem 0 1.5rem; }
-        .drill-empty { color: #7a94b2; font-style: italic; padding: 1.5rem; text-align: center; }
-
-        @media (max-width: 700px) { 
-            .data-body { padding: 1rem; }
-            .chart-wrapper { height: 250px; }
+        /* small helpers */
+        .mt-1 {
+            margin-top: 0.5rem;
+        }
+        .mb-1 {
+            margin-bottom: 0.5rem;
+        }
+        .flex {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        .gap-1 {
+            gap: 0.5rem;
+        }
+        .text-muted {
+            color: #5f7d9c;
+        }
+        .text-sm {
+            font-size: 0.85rem;
         }
     </style>
 </head>
 <body>
-<div class="dashboard">
+    <div class="dashboard">
 
-    <!-- Header -->
-    <div class="header">
-        <h1><i class="fas fa-gas-pump"></i> Fuel Monitor</h1>
-        <span class="sub"><i class="far fa-calendar-alt"></i> Monthly liters, cost & fleet cards</span>
-    </div>
+        <!-- ============================================================ -->
+        <!-- HEADER -->
+        <!-- ============================================================ -->
+        <div class="header">
+            <h1><i class="fas fa-gas-pump"></i> Fuel Monitor</h1>
+            <span class="sub"><i class="far fa-calendar-alt"></i> Monthly liters, cost &amp; fleet cards</span>
+        </div>
 
-    <!-- Summary Cards -->
-    <div class="stats-grid" id="statsGrid">
-        <div class="stat-card">
-            <div class="stat-label"><i class="fas fa-calendar-alt"></i> Months</div>
-            <div class="stat-value" id="statMonths">0</div>
-            <div class="stat-sub">with data</div>
+        <!-- ============================================================ -->
+        <!-- TAB BAR -->
+        <!-- ============================================================ -->
+        <div class="tab-bar">
+            <button class="tab-btn active" data-tab="overview"><i class="fas fa-chart-pie"></i> Overview</button>
+            <button class="tab-btn" data-tab="data"><i class="fas fa-database"></i> Data Management</button>
+            <button class="tab-btn" data-tab="vehicles"><i class="fas fa-truck"></i> Vehicle Analytics</button>
         </div>
-        <div class="stat-card">
-            <div class="stat-label"><i class="fas fa-tint"></i> Total Liters</div>
-            <div class="stat-value" id="statLiters">0.0</div>
-            <div class="stat-sub">all time</div>
-        </div>
-        <div class="stat-card">
-            <div class="stat-label"><i class="fas fa-peso-sign"></i> Total Cost</div>
-            <div class="stat-value" id="statCost">₱0</div>
-            <div class="stat-sub">all time</div>
-        </div>
-        <div class="stat-card">
-            <div class="stat-label"><i class="fas fa-credit-card"></i> Total Fleet Cards</div>
-            <div class="stat-value" id="statFleetCards">0</div>
-            <div class="stat-sub">unique vehicles active</div>
-        </div>
-        <div class="stat-card" style="background: #f0fdf4; border-color: #bbf7d0;">
-            <div class="stat-label"><i class="fas fa-calculator"></i> Liters / Fleet Card</div>
-            <div class="stat-value" id="statRatio" style="color: #16a34a;">0.0</div>
-            <div class="stat-sub">average per card</div>
-        </div>
-    </div>
 
-    <!-- Chart 1: Fuel Consumption -->
-    <div class="chart-container">
-        <div class="chart-header">
-            <h2><i class="fas fa-chart-line"></i> Fuel Consumption</h2>
-            <span style="font-size:0.8rem; color:#4f6f8f;">
-                <i class="fas fa-circle" style="color:#2563eb;"></i> Liters &nbsp;&nbsp;
-                <i class="fas fa-circle" style="color:#f97316;"></i> Cost (PHP)
-            </span>
-        </div>
-        <div class="chart-wrapper">
-            <canvas id="fuelChart"></canvas>
-        </div>
-    </div>
+        <!-- ============================================================ -->
+        <!-- TAB 1 – OVERVIEW -->
+        <!-- ============================================================ -->
+        <div id="tab-overview" class="tab-pane active">
 
-    <!-- Chart 2: Fleet Cards -->
-    <div class="chart-container">
-        <div class="chart-header">
-            <h2><i class="fas fa-credit-card"></i> Fleet Cards Used</h2>
-            <span style="font-size:0.8rem; color:#4f6f8f;">
-                <i class="fas fa-square" style="color:#22c55e;"></i> Number of Cards
-            </span>
-        </div>
-        <div class="chart-wrapper">
-            <canvas id="fleetChart"></canvas>
-        </div>
-    </div>
-
-    <!-- Data Input: CSV URL -->
-    <div class="data-section">
-        <div class="data-header">
-            <h3><i class="fas fa-link"></i> CSV Public Link</h3>
-            <span style="font-size:0.8rem; color:#5f7d9c;">
-                <i class="fas fa-arrows-left-right"></i> Monthly_Summary sheet (per-vehicle Liters & Amount, auto-totaled)
-            </span>
-        </div>
-        <div class="data-body">
-            <div class="csv-url-box">
-                <label><i class="fas fa-globe"></i> Paste your Google Sheets CSV export URL</label>
-                <div class="url-input-row">
-                    <input type="text" id="csvUrlInput" placeholder="https://docs.google.com/spreadsheets/d/e/.../pub?output=csv" />
-                    <button class="btn btn-primary" id="fetchBtn"><i class="fas fa-cloud-download-alt"></i> Fetch Data</button>
-                    <span class="sample-link" id="loadSampleBtn"><i class="fas fa-arrow-right"></i> use sample</span>
+            <!-- Summary Cards -->
+            <div class="stats-grid" id="statsGrid">
+                <div class="stat-card">
+                    <div class="stat-label"><i class="fas fa-calendar-alt"></i> Months</div>
+                    <div class="stat-value" id="statMonths">0</div>
+                    <div class="stat-sub">with data</div>
                 </div>
-                <div class="column-legend">
-                    <span><i class="fas fa-square" style="color:#2563eb;"></i> Liters: <span class="liters-col">first column of each month pair</span></span>
-                    <span><i class="fas fa-square" style="color:#f97316;"></i> Amount: <span class="cost-col">second column of each month pair</span></span>
-                    <span><i class="fas fa-square" style="color:#22c55e;"></i> Fleet Cards: <span class="fleet-col">count of vehicles with Liters &gt; 0, per month</span></span>
+                <div class="stat-card">
+                    <div class="stat-label"><i class="fas fa-tint"></i> Total Liters</div>
+                    <div class="stat-value" id="statLiters">0.0</div>
+                    <div class="stat-sub">all time</div>
                 </div>
-                <div id="statusMsg" class="status-msg" style="margin-top:0.4rem;">Paste the public CSV link and click Fetch.</div>
-            </div>
-
-            <div class="action-row">
-                <button class="btn btn-secondary" id="clearBtn"><i class="fas fa-undo-alt"></i> Clear</button>
-                <button class="btn btn-secondary" id="debugBtn"><i class="fas fa-bug"></i> Debug</button>
-                <span style="font-size:0.8rem; color:#5f7d9c; margin-left:auto;" id="rowCount">0 months loaded</span>
-            </div>
-
-            <!-- Debug info -->
-            <div id="debugInfo" class="debug-info">
-                <strong>Debug Info:</strong>
-                <div id="debugContent"></div>
-            </div>
-
-            <!-- Preview table -->
-            <div class="preview-table" id="previewContainer">
-                <table>
-                    <thead><tr><th>Month</th><th>Liters</th><th>Cost (PHP)</th><th>Fleet Cards</th><th>Liters / Card</th></tr></thead>
-                    <tbody id="previewBody"><tr><td colspan="5" class="empty-message">Fetch data from CSV link above</td></tr></tbody>
-                </table>
-            </div>
-        </div>
-    </div>
-
-    <!-- Vehicle + Month Drill-Down -->
-    <div class="data-section" style="margin-top: 2rem;">
-        <div class="data-header">
-            <h3><i class="fas fa-search"></i> Vehicle Fuel Detail Lookup</h3>
-            <span style="font-size:0.8rem; color:#5f7d9c;">
-                <i class="fas fa-arrows-left-right"></i> Per-transaction detail, from raw FleetHub_Data
-            </span>
-        </div>
-        <div class="data-body">
-            <div class="csv-url-box">
-                <label><i class="fas fa-globe"></i> Paste your raw transaction CSV export URL (FleetHub_Data tab)</label>
-                <div class="url-input-row">
-                    <input type="text" id="drillCsvUrlInput" placeholder="https://docs.google.com/spreadsheets/d/e/.../pub?output=csv" />
-                    <button class="btn btn-primary" id="drillFetchBtn"><i class="fas fa-cloud-download-alt"></i> Load Transactions</button>
+                <div class="stat-card">
+                    <div class="stat-label"><i class="fas fa-peso-sign"></i> Total Cost</div>
+                    <div class="stat-value" id="statCost">₱0</div>
+                    <div class="stat-sub">all time</div>
                 </div>
-                <div id="drillStatusMsg" class="status-msg" style="margin-top:0.4rem;">Paste the raw transaction CSV link and click Load Transactions.</div>
+                <div class="stat-card">
+                    <div class="stat-label"><i class="fas fa-credit-card"></i> Fleet Cards</div>
+                    <div class="stat-value" id="statFleetCards">0</div>
+                    <div class="stat-sub">unique vehicles</div>
+                </div>
+                <div class="stat-card highlight">
+                    <div class="stat-label"><i class="fas fa-calculator"></i> Liters / Card</div>
+                    <div class="stat-value" id="statRatio">0.0</div>
+                    <div class="stat-sub">average</div>
+                </div>
             </div>
 
-            <div class="drill-selectors">
-                <select id="drillVehicleSelect" disabled><option value="">Select vehicle...</option></select>
-                <select id="drillMonthSelect" disabled><option value="">Select month...</option></select>
-                <button class="btn btn-primary" id="drillViewBtn" disabled><i class="fas fa-eye"></i> View Details</button>
-            </div>
-
-            <div id="drillResults" style="margin-top: 1rem; display: none;">
-                <div class="drill-mini-stats" id="drillMiniStats"></div>
+            <!-- Chart: Fuel Consumption -->
+            <div class="chart-container">
                 <div class="chart-header">
-                    <h2 style="font-size:1rem;"><i class="fas fa-chart-bar"></i> Monthly Trend for This Vehicle</h2>
+                    <h2><i class="fas fa-chart-line"></i> Fuel Consumption</h2>
+                    <span style="font-size:0.8rem; color:#4f6f8f;">
+                        <i class="fas fa-circle" style="color:#2563eb;"></i> Liters &nbsp;&nbsp;
+                        <i class="fas fa-circle" style="color:#f97316;"></i> Cost (PHP)
+                    </span>
                 </div>
-                <div class="drill-trend-wrapper">
-                    <canvas id="drillTrendChart"></canvas>
-                </div>
-                <div class="preview-table">
-                    <table>
-                        <thead><tr><th>Date</th><th>Site</th><th>Product</th><th>Quantity (L)</th><th>Unit Price</th><th>Amount</th></tr></thead>
-                        <tbody id="drillTableBody"></tbody>
-                    </table>
+                <div class="chart-wrapper">
+                    <canvas id="fuelChart"></canvas>
                 </div>
             </div>
-            <div id="drillEmpty" class="drill-empty">Load transactions, then select a vehicle and month above.</div>
-        </div>
-    </div>
-</div>
 
-<script>
-    (function() {
-        // Register the datalabels plugin globally
-        Chart.register(ChartDataLabels);
+            <!-- Chart: Fleet Cards -->
+            <div class="chart-container">
+                <div class="chart-header">
+                    <h2><i class="fas fa-credit-card"></i> Fleet Cards Used</h2>
+                    <span style="font-size:0.8rem; color:#4f6f8f;">
+                        <i class="fas fa-square" style="color:#22c55e;"></i> Number of Cards
+                    </span>
+                </div>
+                <div class="chart-wrapper">
+                    <canvas id="fleetChart"></canvas>
+                </div>
+            </div>
 
-        // ---- DOM refs ----
-        const csvUrlInput = document.getElementById('csvUrlInput');
-        const fetchBtn = document.getElementById('fetchBtn');
-        const clearBtn = document.getElementById('clearBtn');
-        const loadSampleBtn = document.getElementById('loadSampleBtn');
-        const debugBtn = document.getElementById('debugBtn');
-        const statusMsg = document.getElementById('statusMsg');
-        const previewBody = document.getElementById('previewBody');
-        const rowCountSpan = document.getElementById('rowCount');
-        const debugInfo = document.getElementById('debugInfo');
-        const debugContent = document.getElementById('debugContent');
+        </div><!-- /tab-overview -->
 
-        const statMonths = document.getElementById('statMonths');
-        const statLiters = document.getElementById('statLiters');
-        const statCost = document.getElementById('statCost');
-        const statFleetCards = document.getElementById('statFleetCards');
-        const statRatio = document.getElementById('statRatio');
+        <!-- ============================================================ -->
+        <!-- TAB 2 – DATA MANAGEMENT -->
+        <!-- ============================================================ -->
+        <div id="tab-data" class="tab-pane">
 
-        let fuelChart = null;
-        let fleetChart = null;
-        let lastRawData = null;
+            <div class="data-section">
+                <div class="data-header">
+                    <h3><i class="fas fa-link"></i> CSV Public Link</h3>
+                    <span style="font-size:0.8rem; color:#5f7d9c;">
+                        <i class="fas fa-arrows-left-right"></i> Monthly_Summary sheet (per-vehicle Liters &amp; Amount)
+                    </span>
+                </div>
+                <div class="data-body">
+                    <div class="csv-url-box">
+                        <label><i class="fas fa-globe"></i> Paste your Google Sheets CSV export URL</label>
+                        <div class="url-input-row">
+                            <input type="text" id="csvUrlInput" placeholder="https://docs.google.com/spreadsheets/d/e/.../pub?output=csv" />
+                            <button class="btn btn-primary" id="fetchBtn"><i class="fas fa-cloud-download-alt"></i> Fetch Data</button>
+                            <button class="sample-link" id="loadSampleBtn"><i class="fas fa-arrow-right"></i> use sample</button>
+                        </div>
+                        <div class="column-legend">
+                            <span><i class="fas fa-square" style="color:#2563eb;"></i> Liters: <span class="liters-col">first column of each month pair</span></span>
+                            <span><i class="fas fa-square" style="color:#f97316;"></i> Amount: <span class="cost-col">second column of each month pair</span></span>
+                            <span><i class="fas fa-square" style="color:#22c55e;"></i> Fleet Cards: <span class="fleet-col">count of vehicles with Liters &gt; 0</span></span>
+                        </div>
+                        <div id="statusMsg" class="status-msg" style="margin-top:0.4rem;">Paste the public CSV link and click Fetch.</div>
+                    </div>
 
-        // ---- improved CSV parser that handles quoted fields and thousand separators ----
-        function parseCSVRow(row) {
-            const result = [];
-            let current = '';
-            let inQuotes = false;
-            for (let i = 0; i < row.length; i++) {
-                const ch = row[i];
-                if (ch === '"') {
-                    inQuotes = !inQuotes;
-                } else if (ch === ',' && !inQuotes) {
-                    result.push(current);
-                    current = '';
-                } else {
-                    current += ch;
-                }
-            }
-            result.push(current);
-            return result;
-        }
+                    <div class="flex gap-1" style="flex-wrap:wrap;">
+                        <button class="btn btn-secondary" id="clearBtn"><i class="fas fa-undo-alt"></i> Clear</button>
+                        <button class="btn btn-secondary" id="debugBtn"><i class="fas fa-bug"></i> Debug</button>
+                        <span style="font-size:0.8rem; color:#5f7d9c; margin-left:auto;" id="rowCount">0 months loaded</span>
+                    </div>
 
-        // ---- clean number: remove thousand separators and convert to float ----
-        function cleanNumber(str) {
-            if (!str || str.trim() === '') return NaN;
-            let cleaned = str.trim();
-            // Remove thousand separators (commas) but keep decimal points
-            cleaned = cleaned.replace(/,/g, '');
-            // Remove any currency symbols or extra characters
-            cleaned = cleaned.replace(/[^0-9.\-]/g, '');
-            return parseFloat(cleaned);
-        }
+                    <!-- Debug -->
+                    <div id="debugInfo" class="debug-info">
+                        <strong>Debug Info:</strong>
+                        <div id="debugContent"></div>
+                    </div>
 
-        // ---- clean integer for fleet cards ----
-        function cleanInteger(str) {
-            if (!str || str.trim() === '') return NaN;
-            let cleaned = str.trim();
-            cleaned = cleaned.replace(/,/g, '');
-            cleaned = cleaned.replace(/[^0-9]/g, '');
-            return parseInt(cleaned, 10);
-        }
+                    <!-- Preview table -->
+                    <div class="preview-table" id="previewContainer">
+                        <table>
+                            <thead><tr><th>Month</th><th>Liters</th><th>Cost (PHP)</th><th>Fleet Cards</th><th>Liters / Card</th></tr></thead>
+                            <tbody id="previewBody"><tr><td colspan="5" class="empty-message">Fetch data from CSV link above</td></tr></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
 
-        // ---- extract monthly data from CSV ----
-        // New source format (Monthly_Summary tab from the FleetHub import script):
-        //   Row 1: "Vehicle License Number", "Jan 2026", "", "Feb 2026", "", ...  (month label, then blank merge cell)
-        //   Row 2: "Vehicle License Number", "Liters", "Amount", "Liters", "Amount", ...
-        //   Row 3+: one row per vehicle, with paired Liters/Amount values per month.
-        // There is no pre-computed totals row anymore, so this function sums
-        // every vehicle row itself to build the monthly totals, and counts
-        // "fleet cards used" as the number of vehicles with Liters > 0 that month.
-        function extractMonthlyData(csvText) {
-            const lines = csvText.split(/\r?\n/).filter(l => l.trim() !== '');
-            const debugLines = [];
+        </div><!-- /tab-data -->
 
-            if (lines.length < 3) {
-                throw new Error(`CSV has only ${lines.length} non-empty rows. Expected a header row, a sub-header row, and at least one vehicle row.`);
-            }
+        <!-- ============================================================ -->
+        <!-- TAB 3 – VEHICLE ANALYTICS -->
+        <!-- ============================================================ -->
+        <div id="tab-vehicles" class="tab-pane">
 
-            const headerRow = parseCSVRow(lines[0]);
-            debugLines.push(`Header row parsed into ${headerRow.length} columns`);
+            <div class="data-section">
+                <div class="data-header">
+                    <h3><i class="fas fa-search"></i> Vehicle Fuel Detail Lookup</h3>
+                    <span style="font-size:0.8rem; color:#5f7d9c;">
+                        <i class="fas fa-arrows-left-right"></i> Per-transaction detail from raw FleetHub_Data
+                    </span>
+                </div>
+                <div class="data-body">
 
-            // Month labels sit at columns 1, 3, 5, ... (odd indices); the even
-            // indices next to them are blank (merged cells in the source sheet).
-            const monthLabels = [];
-            const literColIndices = [];
-            const costColIndices = [];
-            for (let c = 1; c < headerRow.length; c += 2) {
-                const label = (headerRow[c] || '').trim();
-                if (label !== '') {
-                    monthLabels.push(label);
-                    literColIndices.push(c);
-                    costColIndices.push(c + 1);
-                }
-            }
+                    <div class="csv-url-box">
+                        <label><i class="fas fa-globe"></i> Paste your raw transaction CSV export URL (FleetHub_Data tab)</label>
+                        <div class="url-input-row">
+                            <input type="text" id="drillCsvUrlInput" placeholder="https://docs.google.com/spreadsheets/d/e/.../pub?output=csv" />
+                            <button class="btn btn-primary" id="drillFetchBtn"><i class="fas fa-cloud-download-alt"></i> Load Transactions</button>
+                        </div>
+                        <div id="drillStatusMsg" class="status-msg" style="margin-top:0.4rem;">Paste the raw transaction CSV link and click Load Transactions.</div>
+                    </div>
 
-            if (monthLabels.length === 0) {
-                throw new Error('No month columns found in header row. Expected labels like "Jan 2026" starting at column B.');
-            }
-            debugLines.push(`Detected ${monthLabels.length} months: ${monthLabels.join(', ')}`);
+                    <div class="drill-selectors">
+                        <select id="drillVehicleSelect" disabled><option value="">Select vehicle…</option></select>
+                        <select id="drillMonthSelect" disabled><option value="">Select month…</option></select>
+                        <button class="btn btn-primary" id="drillViewBtn" disabled><i class="fas fa-eye"></i> View Details</button>
+                    </div>
 
-            const liters = new Array(monthLabels.length).fill(0);
-            const costs = new Array(monthLabels.length).fill(0);
-            const fleetCards = new Array(monthLabels.length).fill(0);
+                    <div id="drillResults" style="display: none;">
+                        <div class="drill-mini-stats" id="drillMiniStats"></div>
 
-            // Data rows start at index 2 (after header row + Liters/Amount sub-header row).
-            let vehicleCount = 0;
-            const activeVehicles = new Set();
-            for (let r = 2; r < lines.length; r++) {
-                const cols = parseCSVRow(lines[r]);
-                const vehicle = (cols[0] || '').trim();
-                if (vehicle === '') continue;
-                vehicleCount++;
+                        <div class="chart-header" style="margin-top:0.5rem;">
+                            <h2 style="font-size:1rem;"><i class="fas fa-chart-bar"></i> Monthly Trend for This Vehicle</h2>
+                        </div>
+                        <div class="drill-trend-wrapper">
+                            <canvas id="drillTrendChart"></canvas>
+                        </div>
 
-                for (let m = 0; m < monthLabels.length; m++) {
-                    const litersVal = cleanNumber(cols[literColIndices[m]]);
-                    const costVal = cleanNumber(cols[costColIndices[m]]);
-                    const l = isNaN(litersVal) ? 0 : litersVal;
-                    const c = isNaN(costVal) ? 0 : costVal;
+                        <div class="preview-table">
+                            <table>
+                                <thead><tr><th>Date</th><th>Site</th><th>Product</th><th>Quantity (L)</th><th>Unit Price</th><th>Amount</th></tr></thead>
+                                <tbody id="drillTableBody"></tbody>
+                            </table>
+                        </div>
+                    </div>
 
-                    liters[m] += l;
-                    costs[m] += c;
-                    if (l > 0) {
-                        fleetCards[m] += 1;
-                        activeVehicles.add(vehicle);
-                    }
-                }
-            }
+                    <div id="drillEmpty" class="drill-empty">Load transactions, then select a vehicle and month above.</div>
+                </div>
+            </div>
 
-            debugLines.push(`Summed ${vehicleCount} vehicle rows`);
-            monthLabels.forEach((label, i) => {
-                debugLines.push(`${label}: Liters=${liters[i].toFixed(2)} Amount=${costs[i].toFixed(2)} FleetCards=${fleetCards[i]}`);
+        </div><!-- /tab-vehicles -->
+
+    </div><!-- /dashboard -->
+
+    <script>
+        (function() {
+            // ------------------------------------------------------------------
+            // 1. REGISTER DATALABELS
+            // ------------------------------------------------------------------
+            Chart.register(ChartDataLabels);
+
+            // ------------------------------------------------------------------
+            // 2. DOM REFS
+            // ------------------------------------------------------------------
+            const csvUrlInput = document.getElementById('csvUrlInput');
+            const fetchBtn = document.getElementById('fetchBtn');
+            const clearBtn = document.getElementById('clearBtn');
+            const loadSampleBtn = document.getElementById('loadSampleBtn');
+            const debugBtn = document.getElementById('debugBtn');
+            const statusMsg = document.getElementById('statusMsg');
+            const previewBody = document.getElementById('previewBody');
+            const rowCountSpan = document.getElementById('rowCount');
+            const debugInfo = document.getElementById('debugInfo');
+            const debugContent = document.getElementById('debugContent');
+
+            const statMonths = document.getElementById('statMonths');
+            const statLiters = document.getElementById('statLiters');
+            const statCost = document.getElementById('statCost');
+            const statFleetCards = document.getElementById('statFleetCards');
+            const statRatio = document.getElementById('statRatio');
+
+            let fuelChart = null;
+            let fleetChart = null;
+            let lastRawData = null;
+
+            // Drill refs
+            const drillCsvUrlInput = document.getElementById('drillCsvUrlInput');
+            const drillFetchBtn = document.getElementById('drillFetchBtn');
+            const drillStatusMsg = document.getElementById('drillStatusMsg');
+            const drillVehicleSelect = document.getElementById('drillVehicleSelect');
+            const drillMonthSelect = document.getElementById('drillMonthSelect');
+            const drillViewBtn = document.getElementById('drillViewBtn');
+            const drillResults = document.getElementById('drillResults');
+            const drillEmpty = document.getElementById('drillEmpty');
+            const drillMiniStats = document.getElementById('drillMiniStats');
+            const drillTableBody = document.getElementById('drillTableBody');
+
+            let drillRows = [];
+            let drillTrendChart = null;
+
+            // ------------------------------------------------------------------
+            // 3. TABS
+            // ------------------------------------------------------------------
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+                    document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+                    this.classList.add('active');
+                    document.getElementById('tab-' + this.dataset.tab).classList.add('active');
+
+                    // resize charts after tab switch
+                    setTimeout(() => {
+                        if (fuelChart) fuelChart.resize();
+                        if (fleetChart) fleetChart.resize();
+                        if (drillTrendChart) drillTrendChart.resize();
+                    }, 80);
+                });
             });
 
-            lastRawData = debugLines;
+            // ------------------------------------------------------------------
+            // 4. CSV HELPERS
+            // ------------------------------------------------------------------
+            function parseCSVRow(row) {
+                const result = [];
+                let current = '';
+                let inQuotes = false;
+                for (let i = 0; i < row.length; i++) {
+                    const ch = row[i];
+                    if (ch === '"') {
+                        inQuotes = !inQuotes;
+                    } else if (ch === ',' && !inQuotes) {
+                        result.push(current);
+                        current = '';
+                    } else {
+                        current += ch;
+                    }
+                }
+                result.push(current);
+                return result;
+            }
 
-            return { months: monthLabels, liters, costs, fleetCards, uniqueVehicles: activeVehicles.size };
-        }
+            function cleanNumber(str) {
+                if (!str || str.trim() === '') return NaN;
+                let cleaned = str.trim().replace(/,/g, '').replace(/[^0-9.\-]/g, '');
+                return parseFloat(cleaned);
+            }
 
-        // ---- format number with commas ----
-        function formatNumber(num, decimals = 1) {
-            if (isNaN(num) || num === 0) return '0';
-            return num.toFixed(decimals).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
-        }
+            function formatNumber(num, decimals = 1) {
+                if (isNaN(num) || num === 0) return '0';
+                return num.toFixed(decimals).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+            }
 
-        // ---- update dashboard ----
-        function updateDashboard(monthLabels, litersArr, costArr, fleetArr, uniqueVehicles) {
-            const months = [];
-            const liters = [];
-            const costs = [];
-            const fleet = [];
+            // ------------------------------------------------------------------
+            // 5. EXTRACT MONTHLY DATA (Monthly_Summary)
+            // ------------------------------------------------------------------
+            function extractMonthlyData(csvText) {
+                const lines = csvText.split(/\r?\n/).filter(l => l.trim() !== '');
+                const debugLines = [];
 
-            for (let i = 0; i < monthLabels.length; i++) {
-                const l = litersArr[i] || 0;
-                const c = costArr[i] || 0;
-                const f = fleetArr[i] || 0;
-                if (l > 0 || c > 0 || f > 0) {
-                    months.push(monthLabels[i]);
-                    liters.push(l);
-                    costs.push(c);
-                    fleet.push(f);
+                if (lines.length < 3) {
+                    throw new Error(`CSV has only ${lines.length} non-empty rows. Expected header, sub-header and vehicle rows.`);
+                }
+
+                const headerRow = parseCSVRow(lines[0]);
+                debugLines.push(`Header row parsed into ${headerRow.length} columns`);
+
+                const monthLabels = [];
+                const literColIndices = [];
+                const costColIndices = [];
+                for (let c = 1; c < headerRow.length; c += 2) {
+                    const label = (headerRow[c] || '').trim();
+                    if (label !== '') {
+                        monthLabels.push(label);
+                        literColIndices.push(c);
+                        costColIndices.push(c + 1);
+                    }
+                }
+
+                if (monthLabels.length === 0) {
+                    throw new Error('No month columns found in header. Expected labels like "Jan 2026" starting at column B.');
+                }
+                debugLines.push(`Detected ${monthLabels.length} months: ${monthLabels.join(', ')}`);
+
+                const liters = new Array(monthLabels.length).fill(0);
+                const costs = new Array(monthLabels.length).fill(0);
+                const fleetCards = new Array(monthLabels.length).fill(0);
+
+                let vehicleCount = 0;
+                const activeVehicles = new Set();
+
+                for (let r = 2; r < lines.length; r++) {
+                    const cols = parseCSVRow(lines[r]);
+                    const vehicle = (cols[0] || '').trim();
+                    if (vehicle === '') continue;
+                    vehicleCount++;
+
+                    for (let m = 0; m < monthLabels.length; m++) {
+                        const lVal = cleanNumber(cols[literColIndices[m]]);
+                        const cVal = cleanNumber(cols[costColIndices[m]]);
+                        const l = isNaN(lVal) ? 0 : lVal;
+                        const c = isNaN(cVal) ? 0 : cVal;
+
+                        liters[m] += l;
+                        costs[m] += c;
+                        if (l > 0) {
+                            fleetCards[m] += 1;
+                            activeVehicles.add(vehicle);
+                        }
+                    }
+                }
+
+                debugLines.push(`Summed ${vehicleCount} vehicle rows`);
+                monthLabels.forEach((label, i) => {
+                    debugLines.push(
+                        `${label}: Liters=${liters[i].toFixed(2)} Amount=${costs[i].toFixed(2)} FleetCards=${fleetCards[i]}`
+                        );
+                });
+
+                lastRawData = debugLines;
+                return { months: monthLabels, liters, costs, fleetCards, uniqueVehicles: activeVehicles.size };
+            }
+
+            // ------------------------------------------------------------------
+            // 6. UPDATE DASHBOARD (Overview + Data tab)
+            // ------------------------------------------------------------------
+            function updateDashboard(monthLabels, litersArr, costArr, fleetArr, uniqueVehicles) {
+                const months = [];
+                const liters = [];
+                const costs = [];
+                const fleet = [];
+
+                for (let i = 0; i < monthLabels.length; i++) {
+                    const l = litersArr[i] || 0;
+                    const c = costArr[i] || 0;
+                    const f = fleetArr[i] || 0;
+                    if (l > 0 || c > 0 || f > 0) {
+                        months.push(monthLabels[i]);
+                        liters.push(l);
+                        costs.push(c);
+                        fleet.push(f);
+                    }
+                }
+
+                // preview table
+                previewBody.innerHTML = '';
+                if (months.length === 0) {
+                    previewBody.innerHTML =
+                        `<tr><td colspan="5" class="empty-message">No valid monthly data found.</td></tr>`;
+                    rowCountSpan.textContent = '0 months';
+                    statMonths.textContent = '0';
+                    statLiters.textContent = '0.0';
+                    statCost.textContent = '₱0';
+                    statFleetCards.textContent = '0';
+                    statRatio.textContent = '0.0';
+                    if (fuelChart) { fuelChart.destroy();
+                        fuelChart = null; }
+                    if (fleetChart) { fleetChart.destroy();
+                        fleetChart = null; }
+                    return;
+                }
+
+                months.forEach((m, idx) => {
+                    const tr = document.createElement('tr');
+                    const costDisplay = costs[idx] > 0 ? `₱${formatNumber(costs[idx], 2)}` : '—';
+                    const fleetDisplay = fleet[idx] > 0 ? fleet[idx] : '—';
+                    const ratio = fleet[idx] > 0 ? (liters[idx] / fleet[idx]).toFixed(1) : '—';
+                    tr.innerHTML = `
+                        <td><span class="month-tag">${m}</span></td>
+                        <td>${formatNumber(liters[idx], 1)}</td>
+                        <td>${costDisplay}</td>
+                        <td>${fleetDisplay}</td>
+                        <td>${ratio}</td>
+                    `;
+                    previewBody.appendChild(tr);
+                });
+                rowCountSpan.textContent = `${months.length} months`;
+
+                const totalLiters = liters.reduce((a, b) => a + b, 0);
+                const totalCost = costs.reduce((a, b) => a + b, 0);
+                const totalFleet = uniqueVehicles || 0;
+                const ratio = totalFleet > 0 ? totalLiters / totalFleet : 0;
+
+                statMonths.textContent = months.length;
+                statLiters.textContent = formatNumber(totalLiters, 1);
+                statCost.textContent = `₱${formatNumber(totalCost, 2)}`;
+                statFleetCards.textContent = totalFleet;
+                statRatio.textContent = ratio.toFixed(1);
+
+                // ---- Fuel Chart ----
+                if (fuelChart) { fuelChart.destroy();
+                    fuelChart = null; }
+                const ctx1 = document.getElementById('fuelChart').getContext('2d');
+                fuelChart = new Chart(ctx1, {
+                    type: 'line',
+                    data: {
+                        labels: months,
+                        datasets: [{
+                            label: 'Liters',
+                            data: liters,
+                            borderColor: '#2563eb',
+                            backgroundColor: 'rgba(37,99,235,0.08)',
+                            borderWidth: 3,
+                            pointBackgroundColor: '#2563eb',
+                            pointBorderColor: 'white',
+                            pointBorderWidth: 2,
+                            pointRadius: 5,
+                            pointHoverRadius: 7,
+                            tension: 0.2,
+                            yAxisID: 'yLiters',
+                        }, {
+                            label: 'Cost (PHP)',
+                            data: costs,
+                            borderColor: '#f97316',
+                            backgroundColor: 'rgba(249,115,22,0.08)',
+                            borderWidth: 3,
+                            pointBackgroundColor: '#f97316',
+                            pointBorderColor: 'white',
+                            pointBorderWidth: 2,
+                            pointRadius: 5,
+                            pointHoverRadius: 7,
+                            tension: 0.2,
+                            yAxisID: 'yCost',
+                            hidden: costs.every(c => c === 0),
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        interaction: { mode: 'index', intersect: false },
+                        plugins: {
+                            legend: { labels: { usePointStyle: true, boxWidth: 8, font: { weight: '500',
+                                        size: 11 }, padding: 16 } },
+                            tooltip: {
+                                callbacks: {
+                                    label: function(context) {
+                                        let label = context.dataset.label || '';
+                                        let value = context.parsed.y;
+                                        if (context.datasetIndex === 1) return label + ': ₱' + formatNumber(
+                                            value, 2);
+                                        return label + ': ' + formatNumber(value, 1) + ' L';
+                                    }
+                                }
+                            },
+                            datalabels: {
+                                display: function(context) { return context.datasetIndex === 0 || context
+                                        .datasetIndex === 1; },
+                                color: function(context) { return context.datasetIndex === 0 ? '#2563eb' :
+                                        '#f97316'; },
+                                font: { weight: 'bold', size: 9 },
+                                anchor: function(context) { return context.datasetIndex === 0 ? 'end' :
+                                    'start'; },
+                                align: function(context) { return context.datasetIndex === 0 ? 'top' :
+                                    'bottom'; },
+                                offset: 3,
+                                formatter: function(value, context) {
+                                    if (context.datasetIndex === 0) return formatNumber(value, 1);
+                                    return '₱' + formatNumber(value, 2);
+                                },
+                                backgroundColor: function(context) {
+                                    return context.datasetIndex === 0 ? 'rgba(37,99,235,0.1)' :
+                                        'rgba(249,115,22,0.1)';
+                                },
+                                borderRadius: 4,
+                                padding: { top: 2, bottom: 2, left: 5, right: 5 }
+                            }
+                        },
+                        scales: {
+                            yLiters: {
+                                type: 'linear',
+                                display: true,
+                                position: 'left',
+                                grid: { drawOnChartArea: false },
+                                title: { display: true, text: 'Liters', color: '#2563eb', font: { weight: '500',
+                                        size: 10 } },
+                                ticks: { callback: function(value) { return formatNumber(value, 0); } }
+                            },
+                            yCost: {
+                                type: 'linear',
+                                display: true,
+                                position: 'right',
+                                grid: { drawOnChartArea: false },
+                                title: { display: true, text: 'Cost (PHP)', color: '#f97316', font: { weight: '500',
+                                        size: 10 } },
+                                ticks: { callback: function(value) { return '₱' + formatNumber(value, 0); } }
+                            }
+                        }
+                    }
+                });
+
+                // ---- Fleet Chart ----
+                if (fleetChart) { fleetChart.destroy();
+                    fleetChart = null; }
+                const ctx2 = document.getElementById('fleetChart').getContext('2d');
+                fleetChart = new Chart(ctx2, {
+                    type: 'bar',
+                    data: {
+                        labels: months,
+                        datasets: [{
+                            label: 'Fleet Cards Used',
+                            data: fleet,
+                            backgroundColor: 'rgba(34,197,94,0.7)',
+                            borderColor: '#22c55e',
+                            borderWidth: 2,
+                            borderRadius: 6,
+                            barPercentage: 0.6,
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: { labels: { usePointStyle: true, boxWidth: 8, font: { weight: '500',
+                                        size: 11 }, padding: 16 } },
+                            tooltip: {
+                                callbacks: {
+                                    label: function(context) { return 'Fleet Cards: ' + Math.round(context
+                                            .parsed.y); }
+                                }
+                            },
+                            datalabels: {
+                                display: function(context) { return context.dataset.data[context.dataIndex] >
+                                        0; },
+                                color: '#16a34a',
+                                font: { weight: 'bold', size: 10 },
+                                anchor: 'end',
+                                align: 'top',
+                                offset: 2,
+                                formatter: function(value) { return Math.round(value); }
+                            }
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                ticks: { stepSize: 1, callback: function(value) { return Math.round(value); } },
+                                title: { display: true, text: 'Number of Fleet Cards', color: '#22c55e',
+                                    font: { weight: '500', size: 10 } },
+                                grid: { color: 'rgba(0,0,0,0.05)' }
+                            }
+                        }
+                    }
+                });
+            }
+
+            // ------------------------------------------------------------------
+            // 7. FETCH & PROCESS (Monthly)
+            // ------------------------------------------------------------------
+            async function fetchCSV(url) {
+                const response = await fetch(url);
+                if (!response.ok) throw new Error(`HTTP ${response.status} — ${response.statusText}`);
+                return await response.text();
+            }
+
+            async function fetchAndProcess() {
+                const url = csvUrlInput.value.trim();
+                if (!url) {
+                    statusMsg.className = 'status-msg error';
+                    statusMsg.innerHTML = '<i class="fas fa-exclamation-circle"></i> Please paste a valid CSV URL.';
+                    return;
+                }
+                statusMsg.className = 'status-msg';
+                statusMsg.innerHTML = '<span class="spinner"></span> Fetching CSV data…';
+                debugInfo.classList.remove('show');
+
+                try {
+                    const csvText = await fetchCSV(url);
+                    const { months, liters, costs, fleetCards, uniqueVehicles } = extractMonthlyData(csvText);
+                    updateDashboard(months, liters, costs, fleetCards, uniqueVehicles);
+                    statusMsg.className = 'status-msg success';
+                    statusMsg.innerHTML = `<i class="fas fa-check-circle"></i> Data loaded successfully.`;
+                } catch (err) {
+                    statusMsg.className = 'status-msg error';
+                    statusMsg.innerHTML = `<i class="fas fa-exclamation-circle"></i> Error: ${err.message}`;
+                    console.error(err);
                 }
             }
 
-            // update preview
-            previewBody.innerHTML = '';
-            if (months.length === 0) {
-                previewBody.innerHTML = `<tr><td colspan="5" class="empty-message">No valid monthly data found.</td></tr>`;
+            function clearData() {
+                csvUrlInput.value = '';
+                previewBody.innerHTML =
+                    `<tr><td colspan="5" class="empty-message">Fetch data from CSV link above</td></tr>`;
                 rowCountSpan.textContent = '0 months';
                 statMonths.textContent = '0';
                 statLiters.textContent = '0.0';
                 statCost.textContent = '₱0';
                 statFleetCards.textContent = '0';
                 statRatio.textContent = '0.0';
-                if (fuelChart) { fuelChart.destroy(); fuelChart = null; }
-                if (fleetChart) { fleetChart.destroy(); fleetChart = null; }
-                return;
+                if (fuelChart) { fuelChart.destroy();
+                    fuelChart = null; }
+                if (fleetChart) { fleetChart.destroy();
+                    fleetChart = null; }
+                statusMsg.className = 'status-msg';
+                statusMsg.innerHTML = 'Paste the public CSV link and click Fetch.';
+                debugInfo.classList.remove('show');
             }
 
-            months.forEach((m, idx) => {
-                const tr = document.createElement('tr');
-                const costDisplay = costs[idx] > 0 ? `₱${formatNumber(costs[idx], 2)}` : '—';
-                const fleetDisplay = fleet[idx] > 0 ? fleet[idx] : '—';
-                const ratio = fleet[idx] > 0 ? (liters[idx] / fleet[idx]).toFixed(1) : '—';
-                tr.innerHTML = `
-                    <td><span class="month-tag">${m}</span></td>
-                    <td>${formatNumber(liters[idx], 1)}</td>
-                    <td>${costDisplay}</td>
-                    <td>${fleetDisplay}</td>
-                    <td>${ratio}</td>
-                `;
-                previewBody.appendChild(tr);
-            });
-            rowCountSpan.textContent = `${months.length} months`;
-
-            const totalLiters = liters.reduce((a,b) => a + b, 0);
-            const totalCost = costs.reduce((a,b) => a + b, 0);
-            const totalFleet = uniqueVehicles || 0; // distinct vehicles/cards active across the whole period
-            const ratio = totalFleet > 0 ? totalLiters / totalFleet : 0;
-
-            statMonths.textContent = months.length;
-            statLiters.textContent = formatNumber(totalLiters, 1);
-            statCost.textContent = `₱${formatNumber(totalCost, 2)}`;
-            statFleetCards.textContent = totalFleet;
-            statRatio.textContent = ratio.toFixed(1);
-
-            // ---- Create Fuel Chart (Liters + Cost) ----
-            if (fuelChart) { fuelChart.destroy(); fuelChart = null; }
-            const ctx1 = document.getElementById('fuelChart').getContext('2d');
-            
-            fuelChart = new Chart(ctx1, {
-                type: 'line',
-                data: {
-                    labels: months,
-                    datasets: [
-                        {
-                            label: 'Liters',
-                            data: liters,
-                            borderColor: '#2563eb',
-                            backgroundColor: 'rgba(37, 99, 235, 0.08)',
-                            borderWidth: 3,
-                            pointBackgroundColor: '#2563eb',
-                            pointBorderColor: 'white',
-                            pointBorderWidth: 2,
-                            pointRadius: 6,
-                            pointHoverRadius: 8,
-                            tension: 0.2,
-                            yAxisID: 'yLiters',
-                        },
-                        {
-                            label: 'Cost (PHP)',
-                            data: costs,
-                            borderColor: '#f97316',
-                            backgroundColor: 'rgba(249, 115, 22, 0.08)',
-                            borderWidth: 3,
-                            pointBackgroundColor: '#f97316',
-                            pointBorderColor: 'white',
-                            pointBorderWidth: 2,
-                            pointRadius: 6,
-                            pointHoverRadius: 8,
-                            tension: 0.2,
-                            yAxisID: 'yCost',
-                            hidden: costs.every(c => c === 0),
-                        }
-                    ]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    interaction: { mode: 'index', intersect: false },
-                    plugins: {
-                        legend: {
-                            labels: { 
-                                usePointStyle: true, 
-                                boxWidth: 8, 
-                                font: { weight: '500', size: 12 },
-                                padding: 20
-                            }
-                        },
-                        tooltip: {
-                            callbacks: {
-                                label: function(context) {
-                                    let label = context.dataset.label || '';
-                                    let value = context.parsed.y;
-                                    if (context.datasetIndex === 1) {
-                                        return label + ': ₱' + formatNumber(value, 2);
-                                    }
-                                    return label + ': ' + formatNumber(value, 1) + ' L';
-                                }
-                            }
-                        },
-                        datalabels: {
-                            display: function(context) {
-                                return context.datasetIndex === 0 || context.datasetIndex === 1;
-                            },
-                            color: function(context) {
-                                return context.datasetIndex === 0 ? '#2563eb' : '#f97316';
-                            },
-                            font: { weight: 'bold', size: 10 },
-                            anchor: function(context) {
-                                return context.datasetIndex === 0 ? 'end' : 'start';
-                            },
-                            align: function(context) {
-                                return context.datasetIndex === 0 ? 'top' : 'bottom';
-                            },
-                            offset: 4,
-                            formatter: function(value, context) {
-                                if (context.datasetIndex === 0) {
-                                    return formatNumber(value, 1);
-                                } else {
-                                    return '₱' + formatNumber(value, 2);
-                                }
-                            },
-                            backgroundColor: function(context) {
-                                return context.datasetIndex === 0 ? 'rgba(37,99,235,0.1)' : 'rgba(249,115,22,0.1)';
-                            },
-                            borderRadius: 4,
-                            padding: { top: 2, bottom: 2, left: 6, right: 6 }
-                        }
-                    },
-                    scales: {
-                        yLiters: {
-                            type: 'linear',
-                            display: true,
-                            position: 'left',
-                            grid: { drawOnChartArea: false },
-                            title: {
-                                display: true,
-                                text: 'Liters',
-                                color: '#2563eb',
-                                font: { weight: '500', size: 11 }
-                            },
-                            ticks: {
-                                callback: function(value) {
-                                    return formatNumber(value, 0);
-                                }
-                            }
-                        },
-                        yCost: {
-                            type: 'linear',
-                            display: true,
-                            position: 'right',
-                            grid: { drawOnChartArea: false },
-                            title: {
-                                display: true,
-                                text: 'Cost (PHP)',
-                                color: '#f97316',
-                                font: { weight: '500', size: 11 }
-                            },
-                            ticks: {
-                                callback: function(value) {
-                                    return '₱' + formatNumber(value, 0);
-                                }
-                            }
-                        }
-                    }
+            function showDebug() {
+                if (lastRawData) {
+                    debugContent.innerHTML = lastRawData.map(line => `<div><code>${line}</code></div>`).join('');
+                    debugInfo.classList.toggle('show');
+                } else {
+                    debugContent.innerHTML = '<div>No data loaded yet. Fetch data first.</div>';
+                    debugInfo.classList.add('show');
                 }
-            });
-
-            // ---- Create Fleet Chart (Fleet Cards as Bar Chart) ----
-            if (fleetChart) { fleetChart.destroy(); fleetChart = null; }
-            const ctx2 = document.getElementById('fleetChart').getContext('2d');
-            
-            const hasFleetData = fleet.some(f => f > 0);
-            
-            fleetChart = new Chart(ctx2, {
-                type: 'bar',
-                data: {
-                    labels: months,
-                    datasets: [
-                        {
-                            label: 'Fleet Cards Used',
-                            data: fleet,
-                            backgroundColor: 'rgba(34, 197, 94, 0.7)',
-                            borderColor: '#22c55e',
-                            borderWidth: 2,
-                            borderRadius: 6,
-                            barPercentage: 0.6,
-                        }
-                    ]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: {
-                            labels: { 
-                                usePointStyle: true, 
-                                boxWidth: 8, 
-                                font: { weight: '500', size: 12 },
-                                padding: 20
-                            }
-                        },
-                        tooltip: {
-                            callbacks: {
-                                label: function(context) {
-                                    return 'Fleet Cards: ' + Math.round(context.parsed.y);
-                                }
-                            }
-                        },
-                        datalabels: {
-                            display: function(context) {
-                                return context.dataset.data[context.dataIndex] > 0;
-                            },
-                            color: '#16a34a',
-                            font: { weight: 'bold', size: 11 },
-                            anchor: 'end',
-                            align: 'top',
-                            offset: 2,
-                            formatter: function(value) {
-                                return Math.round(value);
-                            }
-                        }
-                    },
-                    scales: {
-                        y: {
-                            beginAtZero: true,
-                            ticks: {
-                                stepSize: 1,
-                                callback: function(value) {
-                                    return Math.round(value);
-                                }
-                            },
-                            title: {
-                                display: true,
-                                text: 'Number of Fleet Cards',
-                                color: '#22c55e',
-                                font: { weight: '500', size: 11 }
-                            },
-                            grid: {
-                                color: 'rgba(0,0,0,0.05)'
-                            }
-                        }
-                    }
-                }
-            });
-        }
-
-        // ---- fetch and process ----
-        async function fetchAndProcess() {
-            const url = csvUrlInput.value.trim();
-            if (!url) {
-                statusMsg.className = 'status-msg error';
-                statusMsg.innerHTML = '<i class="fas fa-exclamation-circle"></i> Please paste a valid CSV URL.';
-                return;
             }
 
-            statusMsg.className = 'status-msg';
-            statusMsg.innerHTML = '<span class="spinner"></span> Fetching CSV data...';
-            debugInfo.classList.remove('show');
-
-            try {
-                const csvText = await fetchCSV(url);
-                const { months, liters, costs, fleetCards, uniqueVehicles } = extractMonthlyData(csvText);
-                updateDashboard(months, liters, costs, fleetCards, uniqueVehicles);
-                statusMsg.className = 'status-msg success';
-                statusMsg.innerHTML = `<i class="fas fa-check-circle"></i> Data loaded successfully from CSV.`;
-            } catch (err) {
-                statusMsg.className = 'status-msg error';
-                statusMsg.innerHTML = `<i class="fas fa-exclamation-circle"></i> Error: ${err.message}`;
-                console.error(err);
-            }
-        }
-
-        async function fetchCSV(url) {
-            const response = await fetch(url);
-            if (!response.ok) throw new Error(`HTTP ${response.status} — ${response.statusText}`);
-            const text = await response.text();
-            return text;
-        }
-
-        // ---- clear ----
-        function clearData() {
-            csvUrlInput.value = '';
-            previewBody.innerHTML = `<tr><td colspan="5" class="empty-message">Fetch data from CSV link above</td></tr>`;
-            rowCountSpan.textContent = '0 months';
-            statMonths.textContent = '0';
-            statLiters.textContent = '0.0';
-            statCost.textContent = '₱0';
-            statFleetCards.textContent = '0';
-            statRatio.textContent = '0.0';
-            if (fuelChart) { fuelChart.destroy(); fuelChart = null; }
-            if (fleetChart) { fleetChart.destroy(); fleetChart = null; }
-            statusMsg.className = 'status-msg';
-            statusMsg.innerHTML = 'Paste the public CSV link and click Fetch.';
-            debugInfo.classList.remove('show');
-        }
-
-        // ---- debug ----
-        function showDebug() {
-            if (lastRawData) {
-                debugContent.innerHTML = lastRawData.map(line => `<div><code>${line}</code></div>`).join('');
-                debugInfo.classList.toggle('show');
-            } else {
-                debugContent.innerHTML = '<div>No data loaded yet. Fetch data first.</div>';
-                debugInfo.classList.add('show');
-            }
-        }
-
-        // ---- load sample ----
-        function loadSample() {
-            csvUrlInput.value = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSJF9zFlZ6Cf_wqIDALZHjVPCdjoo9xCNa10G-8r6TROtED1jNPhAmDEV7ETuzBc4sybYrPfCdOC_pi/pub?gid=1336709651&single=true&output=csv';
-            fetchAndProcess();
-        }
-
-        // ---- attach events ----
-        fetchBtn.addEventListener('click', fetchAndProcess);
-        clearBtn.addEventListener('click', clearData);
-        loadSampleBtn.addEventListener('click', loadSample);
-        debugBtn.addEventListener('click', showDebug);
-
-        // Enter key on URL input
-        csvUrlInput.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter') {
-                e.preventDefault();
+            function loadSample() {
+                csvUrlInput.value =
+                    'https://docs.google.com/spreadsheets/d/e/2PACX-1vSJF9zFlZ6Cf_wqIDALZHjVPCdjoo9xCNa10G-8r6TROtED1jNPhAmDEV7ETuzBc4sybYrPfCdOC_pi/pub?gid=1336709651&single=true&output=csv';
                 fetchAndProcess();
             }
-        });
 
-        // ============================================
-        // VEHICLE + MONTH DRILL-DOWN
-        // Works off the raw FleetHub_Data transaction export (not Monthly_Summary),
-        // since only the raw data has per-fill-up detail (date, site, product, price).
-        // ============================================
+            fetchBtn.addEventListener('click', fetchAndProcess);
+            clearBtn.addEventListener('click', clearData);
+            loadSampleBtn.addEventListener('click', loadSample);
+            debugBtn.addEventListener('click', showDebug);
+            csvUrlInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault();
+                    fetchAndProcess(); } });
 
-        const drillCsvUrlInput = document.getElementById('drillCsvUrlInput');
-        const drillFetchBtn = document.getElementById('drillFetchBtn');
-        const drillStatusMsg = document.getElementById('drillStatusMsg');
-        const drillVehicleSelect = document.getElementById('drillVehicleSelect');
-        const drillMonthSelect = document.getElementById('drillMonthSelect');
-        const drillViewBtn = document.getElementById('drillViewBtn');
-        const drillResults = document.getElementById('drillResults');
-        const drillEmpty = document.getElementById('drillEmpty');
-        const drillMiniStats = document.getElementById('drillMiniStats');
-        const drillTableBody = document.getElementById('drillTableBody');
-
-        let drillRows = [];       // parsed transaction rows: {date, vehicle, site, product, quantity, unitPrice, amount}
-        let drillTrendChart = null;
-
-        // Parse a Delivery Date string as MM/DD/YYYY (or MM/DD/YY as a fallback
-        // for older exports). Returns a Date object or null if unparseable.
-        function parseDrillDate(raw) {
-            if (!raw) return null;
-            const parts = String(raw).trim().split('/');
-            if (parts.length !== 3) return null;
-            const month = parseInt(parts[0], 10);
-            const day = parseInt(parts[1], 10);
-            let year = parseInt(parts[2], 10);
-            if (isNaN(month) || isNaN(day) || isNaN(year)) return null;
-            if (year < 100) year += 2000;
-            const d = new Date(year, month - 1, day);
-            return isNaN(d) ? null : d;
-        }
-
-        function monthKeyOf(date) {
-            return date.getFullYear() + '-' + String(date.getMonth() + 1).padStart(2, '0');
-        }
-
-        function monthLabelOf(date) {
-            const names = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-            return names[date.getMonth()] + ' ' + date.getFullYear();
-        }
-
-        async function loadDrillData() {
-            const url = drillCsvUrlInput.value.trim();
-            if (!url) {
-                drillStatusMsg.className = 'status-msg error';
-                drillStatusMsg.innerHTML = '<i class="fas fa-exclamation-circle"></i> Please paste a valid CSV URL.';
-                return;
+            // ------------------------------------------------------------------
+            // 8. VEHICLE DRILL-DOWN (raw transaction data)
+            // ------------------------------------------------------------------
+            function parseDrillDate(raw) {
+                if (!raw) return null;
+                const parts = String(raw).trim().split('/');
+                if (parts.length !== 3) return null;
+                const month = parseInt(parts[0], 10);
+                const day = parseInt(parts[1], 10);
+                let year = parseInt(parts[2], 10);
+                if (isNaN(month) || isNaN(day) || isNaN(year)) return null;
+                if (year < 100) year += 2000;
+                const d = new Date(year, month - 1, day);
+                return isNaN(d) ? null : d;
             }
 
-            drillStatusMsg.className = 'status-msg';
-            drillStatusMsg.innerHTML = '<span class="spinner"></span> Loading transactions...';
+            function monthKeyOf(date) {
+                return date.getFullYear() + '-' + String(date.getMonth() + 1).padStart(2, '0');
+            }
 
-            try {
-                const csvText = await fetchCSV(url);
-                const lines = csvText.split(/\r?\n/).filter(l => l.trim() !== '');
-                if (lines.length < 2) throw new Error('CSV appears to have no data rows.');
+            function monthLabelOf(date) {
+                const names = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+                return names[date.getMonth()] + ' ' + date.getFullYear();
+            }
 
-                const header = parseCSVRow(lines[0]);
-                const idx = {
-                    date: header.indexOf('Delivery Date'),
-                    vehicle: header.indexOf('Vehicle License Number'),
-                    site: header.indexOf('Site Name'),
-                    product: header.indexOf('Product Name'),
-                    quantity: header.indexOf('Quantity'),
-                    unitPrice: header.indexOf('Unit price in transaction currency (incl. VAT)'),
-                    // Use Gross Purchase Price (incl VAT, after discount) — this matches
-                    // the "Amount" figure in the Monthly_Summary sheet, so totals reconcile.
-                    amount: header.indexOf('Gross Purchase Price in transaction currency (incl VAT and after discount)')
-                };
-                const missing = Object.keys(idx).filter(k => idx[k] === -1);
-                if (missing.length > 0) {
-                    throw new Error('Missing expected column(s): ' + missing.join(', ') + '. Check the CSV header names haven\'t changed.');
+            async function loadDrillData() {
+                const url = drillCsvUrlInput.value.trim();
+                if (!url) {
+                    drillStatusMsg.className = 'status-msg error';
+                    drillStatusMsg.innerHTML =
+                    '<i class="fas fa-exclamation-circle"></i> Please paste a valid CSV URL.';
+                    return;
+                }
+                drillStatusMsg.className = 'status-msg';
+                drillStatusMsg.innerHTML = '<span class="spinner"></span> Loading transactions…';
+
+                try {
+                    const csvText = await fetchCSV(url);
+                    const lines = csvText.split(/\r?\n/).filter(l => l.trim() !== '');
+                    if (lines.length < 2) throw new Error('CSV appears to have no data rows.');
+
+                    const header = parseCSVRow(lines[0]);
+                    const idx = {
+                        date: header.indexOf('Delivery Date'),
+                        vehicle: header.indexOf('Vehicle License Number'),
+                        site: header.indexOf('Site Name'),
+                        product: header.indexOf('Product Name'),
+                        quantity: header.indexOf('Quantity'),
+                        unitPrice: header.indexOf('Unit price in transaction currency (incl. VAT)'),
+                        amount: header.indexOf('Gross Purchase Price in transaction currency (incl VAT and after discount)')
+                    };
+                    const missing = Object.keys(idx).filter(k => idx[k] === -1);
+                    if (missing.length > 0) {
+                        throw new Error('Missing expected column(s): ' + missing.join(', '));
+                    }
+
+                    drillRows = [];
+                    for (let i = 1; i < lines.length; i++) {
+                        const cols = parseCSVRow(lines[i]);
+                        const vehicle = (cols[idx.vehicle] || '').trim();
+                        const dateObj = parseDrillDate(cols[idx.date]);
+                        if (!vehicle || !dateObj) continue;
+                        drillRows.push({
+                            date: dateObj,
+                            vehicle: vehicle,
+                            site: (cols[idx.site] || '').trim(),
+                            product: (cols[idx.product] || '').trim(),
+                            quantity: cleanNumber(cols[idx.quantity]) || 0,
+                            unitPrice: cleanNumber(cols[idx.unitPrice]) || 0,
+                            amount: cleanNumber(cols[idx.amount]) || 0
+                        });
+                    }
+
+                    if (drillRows.length === 0) {
+                        throw new Error('No valid transaction rows found.');
+                    }
+
+                    const vehicles = Array.from(new Set(drillRows.map(r => r.vehicle))).sort();
+                    drillVehicleSelect.innerHTML = '<option value="">Select vehicle…</option>' +
+                        vehicles.map(v => `<option value="${v}">${v}</option>`).join('');
+
+                    const monthMap = new Map();
+                    drillRows.forEach(r => monthMap.set(monthKeyOf(r.date), monthLabelOf(r.date)));
+                    const sortedKeys = Array.from(monthMap.keys()).sort();
+                    drillMonthSelect.innerHTML = '<option value="">Select month…</option>' +
+                        sortedKeys.map(k => `<option value="${k}">${monthMap.get(k)}</option>`).join('');
+
+                    drillVehicleSelect.disabled = false;
+                    drillMonthSelect.disabled = false;
+                    drillViewBtn.disabled = false;
+
+                    drillStatusMsg.className = 'status-msg success';
+                    drillStatusMsg.innerHTML =
+                        `<i class="fas fa-check-circle"></i> Loaded ${drillRows.length} transactions across ${vehicles.length} vehicles.`;
+                } catch (err) {
+                    drillStatusMsg.className = 'status-msg error';
+                    drillStatusMsg.innerHTML = `<i class="fas fa-exclamation-circle"></i> Error: ${err.message}`;
+                    console.error(err);
+                }
+            }
+
+            function viewDrillDetails() {
+                const vehicle = drillVehicleSelect.value;
+                const monthKey = drillMonthSelect.value;
+
+                if (!vehicle || !monthKey) {
+                    drillResults.style.display = 'none';
+                    drillEmpty.style.display = 'block';
+                    drillEmpty.textContent = 'Please select both a vehicle and a month.';
+                    return;
                 }
 
-                drillRows = [];
-                for (let i = 1; i < lines.length; i++) {
-                    const cols = parseCSVRow(lines[i]);
-                    const vehicle = (cols[idx.vehicle] || '').trim();
-                    const dateObj = parseDrillDate(cols[idx.date]);
-                    if (!vehicle || !dateObj) continue;
+                const matches = drillRows
+                    .filter(r => r.vehicle === vehicle && monthKeyOf(r.date) === monthKey)
+                    .sort((a, b) => a.date - b.date);
 
-                    drillRows.push({
-                        date: dateObj,
-                        vehicle: vehicle,
-                        site: (cols[idx.site] || '').trim(),
-                        product: (cols[idx.product] || '').trim(),
-                        quantity: cleanNumber(cols[idx.quantity]) || 0,
-                        unitPrice: cleanNumber(cols[idx.unitPrice]) || 0,
-                        amount: cleanNumber(cols[idx.amount]) || 0
-                    });
+                if (matches.length === 0) {
+                    drillResults.style.display = 'none';
+                    drillEmpty.style.display = 'block';
+                    drillEmpty.textContent =
+                        `No transactions found for ${vehicle} in ${drillMonthSelect.options[drillMonthSelect.selectedIndex].text}.`;
+                    return;
                 }
 
-                if (drillRows.length === 0) {
-                    throw new Error('No valid transaction rows found (check Delivery Date and Vehicle License Number columns).');
-                }
+                drillEmpty.style.display = 'none';
+                drillResults.style.display = 'block';
 
-                // Populate vehicle dropdown (alphabetical)
-                const vehicles = Array.from(new Set(drillRows.map(r => r.vehicle))).sort();
-                drillVehicleSelect.innerHTML = '<option value="">Select vehicle...</option>' +
-                    vehicles.map(v => `<option value="${v}">${v}</option>`).join('');
+                const totalLiters = matches.reduce((a, r) => a + r.quantity, 0);
+                const totalCost = matches.reduce((a, r) => a + r.amount, 0);
+                const fillUps = matches.length;
+                const avgLitersPerFillup = totalLiters / fillUps;
+                const avgCostPerLiter = totalLiters > 0 ? totalCost / totalLiters : 0;
 
-                // Populate month dropdown (chronological)
-                const monthMap = new Map(); // key -> label
-                drillRows.forEach(r => monthMap.set(monthKeyOf(r.date), monthLabelOf(r.date)));
-                const sortedMonthKeys = Array.from(monthMap.keys()).sort();
-                drillMonthSelect.innerHTML = '<option value="">Select month...</option>' +
-                    sortedMonthKeys.map(k => `<option value="${k}">${monthMap.get(k)}</option>`).join('');
+                drillMiniStats.innerHTML = `
+                    <div class="drill-mini-card"><div class="drill-mini-label">Total Liters</div><div class="drill-mini-value">${formatNumber(totalLiters, 1)}</div></div>
+                    <div class="drill-mini-card"><div class="drill-mini-label">Total Cost</div><div class="drill-mini-value">₱${formatNumber(totalCost, 2)}</div></div>
+                    <div class="drill-mini-card"><div class="drill-mini-label">Fill-ups</div><div class="drill-mini-value">${fillUps}</div></div>
+                    <div class="drill-mini-card"><div class="drill-mini-label">Avg L / Fill-up</div><div class="drill-mini-value">${formatNumber(avgLitersPerFillup, 1)}</div></div>
+                    <div class="drill-mini-card"><div class="drill-mini-label">Avg Cost / Liter</div><div class="drill-mini-value">₱${formatNumber(avgCostPerLiter, 2)}</div></div>
+                `;
 
-                drillVehicleSelect.disabled = false;
-                drillMonthSelect.disabled = false;
-                drillViewBtn.disabled = false;
+                drillTableBody.innerHTML = matches.map(r => `
+                    <tr>
+                        <td>${r.date.toLocaleDateString('en-US', { month:'short', day:'numeric', year:'numeric' })}</td>
+                        <td>${r.site}</td>
+                        <td>${r.product}</td>
+                        <td>${formatNumber(r.quantity, 1)}</td>
+                        <td>₱${formatNumber(r.unitPrice, 2)}</td>
+                        <td>₱${formatNumber(r.amount, 2)}</td>
+                    </tr>
+                `).join('');
 
-                drillStatusMsg.className = 'status-msg success';
-                drillStatusMsg.innerHTML = `<i class="fas fa-check-circle"></i> Loaded ${drillRows.length} transactions across ${vehicles.length} vehicles.`;
-            } catch (err) {
-                drillStatusMsg.className = 'status-msg error';
-                drillStatusMsg.innerHTML = `<i class="fas fa-exclamation-circle"></i> Error: ${err.message}`;
-                console.error(err);
-            }
-        }
+                // trend chart
+                const vehicleRows = drillRows.filter(r => r.vehicle === vehicle);
+                const byMonth = new Map();
+                vehicleRows.forEach(r => {
+                    const key = monthKeyOf(r.date);
+                    byMonth.set(key, (byMonth.get(key) || 0) + r.quantity);
+                });
+                const trendKeys = Array.from(byMonth.keys()).sort();
+                const trendLabels = trendKeys.map(k => {
+                    const [y, m] = k.split('-');
+                    return monthLabelOf(new Date(parseInt(y), parseInt(m) - 1, 1));
+                });
+                const trendData = trendKeys.map(k => byMonth.get(k));
+                const trendColors = trendKeys.map(k => k === monthKey ? '#f97316' : '#2563eb');
 
-        function viewDrillDetails() {
-            const vehicle = drillVehicleSelect.value;
-            const monthKey = drillMonthSelect.value;
-
-            if (!vehicle || !monthKey) {
-                drillResults.style.display = 'none';
-                drillEmpty.style.display = 'block';
-                drillEmpty.textContent = 'Please select both a vehicle and a month.';
-                return;
-            }
-
-            const matches = drillRows
-                .filter(r => r.vehicle === vehicle && monthKeyOf(r.date) === monthKey)
-                .sort((a, b) => a.date - b.date);
-
-            if (matches.length === 0) {
-                drillResults.style.display = 'none';
-                drillEmpty.style.display = 'block';
-                drillEmpty.textContent = `No transactions found for ${vehicle} in ${drillMonthSelect.options[drillMonthSelect.selectedIndex].text}.`;
-                return;
-            }
-
-            drillEmpty.style.display = 'none';
-            drillResults.style.display = 'block';
-
-            // ---- mini stats ----
-            const totalLiters = matches.reduce((a, r) => a + r.quantity, 0);
-            const totalCost = matches.reduce((a, r) => a + r.amount, 0);
-            const fillUps = matches.length;
-            const avgLitersPerFillup = totalLiters / fillUps;
-            const avgCostPerLiter = totalLiters > 0 ? totalCost / totalLiters : 0;
-
-            drillMiniStats.innerHTML = `
-                <div class="drill-mini-card">
-                    <div class="drill-mini-label">Total Liters</div>
-                    <div class="drill-mini-value">${formatNumber(totalLiters, 1)}</div>
-                </div>
-                <div class="drill-mini-card">
-                    <div class="drill-mini-label">Total Cost</div>
-                    <div class="drill-mini-value">₱${formatNumber(totalCost, 2)}</div>
-                </div>
-                <div class="drill-mini-card">
-                    <div class="drill-mini-label">Fill-ups</div>
-                    <div class="drill-mini-value">${fillUps}</div>
-                </div>
-                <div class="drill-mini-card">
-                    <div class="drill-mini-label">Avg L / Fill-up</div>
-                    <div class="drill-mini-value">${formatNumber(avgLitersPerFillup, 1)}</div>
-                </div>
-                <div class="drill-mini-card">
-                    <div class="drill-mini-label">Avg Cost / Liter</div>
-                    <div class="drill-mini-value">₱${formatNumber(avgCostPerLiter, 2)}</div>
-                </div>
-            `;
-
-            // ---- transaction table ----
-            drillTableBody.innerHTML = matches.map(r => `
-                <tr>
-                    <td>${r.date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</td>
-                    <td>${r.site}</td>
-                    <td>${r.product}</td>
-                    <td>${formatNumber(r.quantity, 1)}</td>
-                    <td>₱${formatNumber(r.unitPrice, 2)}</td>
-                    <td>₱${formatNumber(r.amount, 2)}</td>
-                </tr>
-            `).join('');
-
-            // ---- trend chart: this vehicle's liters across all months, selected month highlighted ----
-            const vehicleRows = drillRows.filter(r => r.vehicle === vehicle);
-            const byMonth = new Map();
-            vehicleRows.forEach(r => {
-                const key = monthKeyOf(r.date);
-                byMonth.set(key, (byMonth.get(key) || 0) + r.quantity);
-            });
-            const trendKeys = Array.from(byMonth.keys()).sort();
-            const trendLabels = trendKeys.map(k => {
-                const [y, m] = k.split('-');
-                return monthLabelOf(new Date(parseInt(y), parseInt(m) - 1, 1));
-            });
-            const trendData = trendKeys.map(k => byMonth.get(k));
-            const trendColors = trendKeys.map(k => k === monthKey ? '#f97316' : '#2563eb');
-
-            if (drillTrendChart) { drillTrendChart.destroy(); drillTrendChart = null; }
-            const ctx = document.getElementById('drillTrendChart').getContext('2d');
-            drillTrendChart = new Chart(ctx, {
-                type: 'bar',
-                data: {
-                    labels: trendLabels,
-                    datasets: [{
-                        label: 'Liters',
-                        data: trendData,
-                        backgroundColor: trendColors,
-                        borderRadius: 6,
-                        barPercentage: 0.6,
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: { display: false },
-                        tooltip: {
-                            callbacks: {
-                                label: function(context) { return formatNumber(context.parsed.y, 1) + ' L'; }
+                if (drillTrendChart) { drillTrendChart.destroy();
+                    drillTrendChart = null; }
+                const ctx = document.getElementById('drillTrendChart').getContext('2d');
+                drillTrendChart = new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: trendLabels,
+                        datasets: [{
+                            label: 'Liters',
+                            data: trendData,
+                            backgroundColor: trendColors,
+                            borderRadius: 6,
+                            barPercentage: 0.6,
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: { display: false },
+                            tooltip: {
+                                callbacks: {
+                                    label: function(context) { return formatNumber(context.parsed.y, 1) +
+                                            ' L'; }
+                                }
+                            },
+                            datalabels: {
+                                display: true,
+                                color: '#334155',
+                                font: { weight: 'bold', size: 9 },
+                                anchor: 'end',
+                                align: 'top',
+                                formatter: function(value) { return formatNumber(value, 0); }
                             }
                         },
-                        datalabels: {
-                            display: true,
-                            color: '#334155',
-                            font: { weight: 'bold', size: 10 },
-                            anchor: 'end',
-                            align: 'top',
-                            formatter: function(value) { return formatNumber(value, 0); }
+                        scales: {
+                            y: { beginAtZero: true, grid: { color: 'rgba(0,0,0,0.05)' } }
                         }
-                    },
-                    scales: {
-                        y: { beginAtZero: true, grid: { color: 'rgba(0,0,0,0.05)' } }
                     }
-                }
-            });
-        }
-
-        drillFetchBtn.addEventListener('click', loadDrillData);
-        drillViewBtn.addEventListener('click', viewDrillDetails);
-        drillCsvUrlInput.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter') {
-                e.preventDefault();
-                loadDrillData();
+                });
             }
-        });
 
-        // ---- auto-load on first visit ----
-        window.addEventListener('load', () => {
-            csvUrlInput.value = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSJF9zFlZ6Cf_wqIDALZHjVPCdjoo9xCNa10G-8r6TROtED1jNPhAmDEV7ETuzBc4sybYrPfCdOC_pi/pub?gid=1336709651&single=true&output=csv';
-            fetchAndProcess();
-            drillCsvUrlInput.value = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSJF9zFlZ6Cf_wqIDALZHjVPCdjoo9xCNa10G-8r6TROtED1jNPhAmDEV7ETuzBc4sybYrPfCdOC_pi/pub?gid=0&single=true&output=csv';
-        });
-    })();
-</script>
+            drillFetchBtn.addEventListener('click', loadDrillData);
+            drillViewBtn.addEventListener('click', viewDrillDetails);
+            drillCsvUrlInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') { e.preventDefault();
+                    loadDrillData(); }
+            });
+
+            // ------------------------------------------------------------------
+            // 9. AUTO-LOAD ON FIRST VISIT
+            // ------------------------------------------------------------------
+            window.addEventListener('load', () => {
+                csvUrlInput.value =
+                    'https://docs.google.com/spreadsheets/d/e/2PACX-1vSJF9zFlZ6Cf_wqIDALZHjVPCdjoo9xCNa10G-8r6TROtED1jNPhAmDEV7ETuzBc4sybYrPfCdOC_pi/pub?gid=1336709651&single=true&output=csv';
+                fetchAndProcess();
+
+                drillCsvUrlInput.value =
+                    'https://docs.google.com/spreadsheets/d/e/2PACX-1vSJF9zFlZ6Cf_wqIDALZHjVPCdjoo9xCNa10G-8r6TROtED1jNPhAmDEV7ETuzBc4sybYrPfCdOC_pi/pub?gid=0&single=true&output=csv';
+                // optionally auto-load drill data too
+                setTimeout(() => loadDrillData(), 400);
+            });
+
+        })();
+    </script>
 </body>
 </html>

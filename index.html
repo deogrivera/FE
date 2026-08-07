@@ -88,6 +88,17 @@
 
         .ratio-badge { display: inline-block; background: #f0fdf4; padding: 0.2rem 0.8rem; border-radius: 30px; font-size: 0.7rem; font-weight: 600; color: #16a34a; border: 1px solid #bbf7d0; }
 
+        /* Vehicle Drill-Down */
+        .drill-selectors { display: flex; gap: 0.8rem; flex-wrap: wrap; align-items: center; margin-top: 0.5rem; }
+        .drill-selectors select { padding: 0.6rem 1rem; border-radius: 60px; border: 1px solid #d6e2f0; font-size: 0.9rem; background: white; min-width: 180px; }
+        .drill-selectors select:focus { outline: none; border-color: #2563eb; box-shadow: 0 0 0 3px rgba(37,99,235,0.15); }
+        .drill-mini-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 1rem; margin: 1.2rem 0; }
+        .drill-mini-card { background: #f9fcff; border: 1px solid #e3ebf5; border-radius: 1.2rem; padding: 0.9rem 1.1rem; }
+        .drill-mini-label { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.03em; color: #5f7d9c; }
+        .drill-mini-value { font-size: 1.3rem; font-weight: 700; color: #0b2a41; margin-top: 0.1rem; }
+        .drill-trend-wrapper { position: relative; height: 200px; margin: 1rem 0 1.5rem; }
+        .drill-empty { color: #7a94b2; font-style: italic; padding: 1.5rem; text-align: center; }
+
         @media (max-width: 700px) { 
             .data-body { padding: 1rem; }
             .chart-wrapper { height: 250px; }
@@ -202,6 +213,49 @@
                     <tbody id="previewBody"><tr><td colspan="5" class="empty-message">Fetch data from CSV link above</td></tr></tbody>
                 </table>
             </div>
+        </div>
+    </div>
+
+    <!-- Vehicle + Month Drill-Down -->
+    <div class="data-section" style="margin-top: 2rem;">
+        <div class="data-header">
+            <h3><i class="fas fa-search"></i> Vehicle Fuel Detail Lookup</h3>
+            <span style="font-size:0.8rem; color:#5f7d9c;">
+                <i class="fas fa-arrows-left-right"></i> Per-transaction detail, from raw FleetHub_Data
+            </span>
+        </div>
+        <div class="data-body">
+            <div class="csv-url-box">
+                <label><i class="fas fa-globe"></i> Paste your raw transaction CSV export URL (FleetHub_Data tab)</label>
+                <div class="url-input-row">
+                    <input type="text" id="drillCsvUrlInput" placeholder="https://docs.google.com/spreadsheets/d/e/.../pub?output=csv" />
+                    <button class="btn btn-primary" id="drillFetchBtn"><i class="fas fa-cloud-download-alt"></i> Load Transactions</button>
+                </div>
+                <div id="drillStatusMsg" class="status-msg" style="margin-top:0.4rem;">Paste the raw transaction CSV link and click Load Transactions.</div>
+            </div>
+
+            <div class="drill-selectors">
+                <select id="drillVehicleSelect" disabled><option value="">Select vehicle...</option></select>
+                <select id="drillMonthSelect" disabled><option value="">Select month...</option></select>
+                <button class="btn btn-primary" id="drillViewBtn" disabled><i class="fas fa-eye"></i> View Details</button>
+            </div>
+
+            <div id="drillResults" style="margin-top: 1rem; display: none;">
+                <div class="drill-mini-stats" id="drillMiniStats"></div>
+                <div class="chart-header">
+                    <h2 style="font-size:1rem;"><i class="fas fa-chart-bar"></i> Monthly Trend for This Vehicle</h2>
+                </div>
+                <div class="drill-trend-wrapper">
+                    <canvas id="drillTrendChart"></canvas>
+                </div>
+                <div class="preview-table">
+                    <table>
+                        <thead><tr><th>Date</th><th>Site</th><th>Product</th><th>Quantity (L)</th><th>Unit Price</th><th>Amount</th></tr></thead>
+                        <tbody id="drillTableBody"></tbody>
+                    </table>
+                </div>
+            </div>
+            <div id="drillEmpty" class="drill-empty">Load transactions, then select a vehicle and month above.</div>
         </div>
     </div>
 </div>
@@ -709,10 +763,266 @@
             }
         });
 
+        // ============================================
+        // VEHICLE + MONTH DRILL-DOWN
+        // Works off the raw FleetHub_Data transaction export (not Monthly_Summary),
+        // since only the raw data has per-fill-up detail (date, site, product, price).
+        // ============================================
+
+        const drillCsvUrlInput = document.getElementById('drillCsvUrlInput');
+        const drillFetchBtn = document.getElementById('drillFetchBtn');
+        const drillStatusMsg = document.getElementById('drillStatusMsg');
+        const drillVehicleSelect = document.getElementById('drillVehicleSelect');
+        const drillMonthSelect = document.getElementById('drillMonthSelect');
+        const drillViewBtn = document.getElementById('drillViewBtn');
+        const drillResults = document.getElementById('drillResults');
+        const drillEmpty = document.getElementById('drillEmpty');
+        const drillMiniStats = document.getElementById('drillMiniStats');
+        const drillTableBody = document.getElementById('drillTableBody');
+
+        let drillRows = [];       // parsed transaction rows: {date, vehicle, site, product, quantity, unitPrice, amount}
+        let drillTrendChart = null;
+
+        // Parse a Delivery Date string as MM/DD/YYYY (or MM/DD/YY as a fallback
+        // for older exports). Returns a Date object or null if unparseable.
+        function parseDrillDate(raw) {
+            if (!raw) return null;
+            const parts = String(raw).trim().split('/');
+            if (parts.length !== 3) return null;
+            const month = parseInt(parts[0], 10);
+            const day = parseInt(parts[1], 10);
+            let year = parseInt(parts[2], 10);
+            if (isNaN(month) || isNaN(day) || isNaN(year)) return null;
+            if (year < 100) year += 2000;
+            const d = new Date(year, month - 1, day);
+            return isNaN(d) ? null : d;
+        }
+
+        function monthKeyOf(date) {
+            return date.getFullYear() + '-' + String(date.getMonth() + 1).padStart(2, '0');
+        }
+
+        function monthLabelOf(date) {
+            const names = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+            return names[date.getMonth()] + ' ' + date.getFullYear();
+        }
+
+        async function loadDrillData() {
+            const url = drillCsvUrlInput.value.trim();
+            if (!url) {
+                drillStatusMsg.className = 'status-msg error';
+                drillStatusMsg.innerHTML = '<i class="fas fa-exclamation-circle"></i> Please paste a valid CSV URL.';
+                return;
+            }
+
+            drillStatusMsg.className = 'status-msg';
+            drillStatusMsg.innerHTML = '<span class="spinner"></span> Loading transactions...';
+
+            try {
+                const csvText = await fetchCSV(url);
+                const lines = csvText.split(/\r?\n/).filter(l => l.trim() !== '');
+                if (lines.length < 2) throw new Error('CSV appears to have no data rows.');
+
+                const header = parseCSVRow(lines[0]);
+                const idx = {
+                    date: header.indexOf('Delivery Date'),
+                    vehicle: header.indexOf('Vehicle License Number'),
+                    site: header.indexOf('Site Name'),
+                    product: header.indexOf('Product Name'),
+                    quantity: header.indexOf('Quantity'),
+                    unitPrice: header.indexOf('Unit price in transaction currency (incl. VAT)'),
+                    // Use Gross Purchase Price (incl VAT, after discount) — this matches
+                    // the "Amount" figure in the Monthly_Summary sheet, so totals reconcile.
+                    amount: header.indexOf('Gross Purchase Price in transaction currency (incl VAT and after discount)')
+                };
+                const missing = Object.keys(idx).filter(k => idx[k] === -1);
+                if (missing.length > 0) {
+                    throw new Error('Missing expected column(s): ' + missing.join(', ') + '. Check the CSV header names haven\'t changed.');
+                }
+
+                drillRows = [];
+                for (let i = 1; i < lines.length; i++) {
+                    const cols = parseCSVRow(lines[i]);
+                    const vehicle = (cols[idx.vehicle] || '').trim();
+                    const dateObj = parseDrillDate(cols[idx.date]);
+                    if (!vehicle || !dateObj) continue;
+
+                    drillRows.push({
+                        date: dateObj,
+                        vehicle: vehicle,
+                        site: (cols[idx.site] || '').trim(),
+                        product: (cols[idx.product] || '').trim(),
+                        quantity: cleanNumber(cols[idx.quantity]) || 0,
+                        unitPrice: cleanNumber(cols[idx.unitPrice]) || 0,
+                        amount: cleanNumber(cols[idx.amount]) || 0
+                    });
+                }
+
+                if (drillRows.length === 0) {
+                    throw new Error('No valid transaction rows found (check Delivery Date and Vehicle License Number columns).');
+                }
+
+                // Populate vehicle dropdown (alphabetical)
+                const vehicles = Array.from(new Set(drillRows.map(r => r.vehicle))).sort();
+                drillVehicleSelect.innerHTML = '<option value="">Select vehicle...</option>' +
+                    vehicles.map(v => `<option value="${v}">${v}</option>`).join('');
+
+                // Populate month dropdown (chronological)
+                const monthMap = new Map(); // key -> label
+                drillRows.forEach(r => monthMap.set(monthKeyOf(r.date), monthLabelOf(r.date)));
+                const sortedMonthKeys = Array.from(monthMap.keys()).sort();
+                drillMonthSelect.innerHTML = '<option value="">Select month...</option>' +
+                    sortedMonthKeys.map(k => `<option value="${k}">${monthMap.get(k)}</option>`).join('');
+
+                drillVehicleSelect.disabled = false;
+                drillMonthSelect.disabled = false;
+                drillViewBtn.disabled = false;
+
+                drillStatusMsg.className = 'status-msg success';
+                drillStatusMsg.innerHTML = `<i class="fas fa-check-circle"></i> Loaded ${drillRows.length} transactions across ${vehicles.length} vehicles.`;
+            } catch (err) {
+                drillStatusMsg.className = 'status-msg error';
+                drillStatusMsg.innerHTML = `<i class="fas fa-exclamation-circle"></i> Error: ${err.message}`;
+                console.error(err);
+            }
+        }
+
+        function viewDrillDetails() {
+            const vehicle = drillVehicleSelect.value;
+            const monthKey = drillMonthSelect.value;
+
+            if (!vehicle || !monthKey) {
+                drillResults.style.display = 'none';
+                drillEmpty.style.display = 'block';
+                drillEmpty.textContent = 'Please select both a vehicle and a month.';
+                return;
+            }
+
+            const matches = drillRows
+                .filter(r => r.vehicle === vehicle && monthKeyOf(r.date) === monthKey)
+                .sort((a, b) => a.date - b.date);
+
+            if (matches.length === 0) {
+                drillResults.style.display = 'none';
+                drillEmpty.style.display = 'block';
+                drillEmpty.textContent = `No transactions found for ${vehicle} in ${drillMonthSelect.options[drillMonthSelect.selectedIndex].text}.`;
+                return;
+            }
+
+            drillEmpty.style.display = 'none';
+            drillResults.style.display = 'block';
+
+            // ---- mini stats ----
+            const totalLiters = matches.reduce((a, r) => a + r.quantity, 0);
+            const totalCost = matches.reduce((a, r) => a + r.amount, 0);
+            const fillUps = matches.length;
+            const avgLitersPerFillup = totalLiters / fillUps;
+            const avgCostPerLiter = totalLiters > 0 ? totalCost / totalLiters : 0;
+
+            drillMiniStats.innerHTML = `
+                <div class="drill-mini-card">
+                    <div class="drill-mini-label">Total Liters</div>
+                    <div class="drill-mini-value">${formatNumber(totalLiters, 1)}</div>
+                </div>
+                <div class="drill-mini-card">
+                    <div class="drill-mini-label">Total Cost</div>
+                    <div class="drill-mini-value">₱${formatNumber(totalCost, 2)}</div>
+                </div>
+                <div class="drill-mini-card">
+                    <div class="drill-mini-label">Fill-ups</div>
+                    <div class="drill-mini-value">${fillUps}</div>
+                </div>
+                <div class="drill-mini-card">
+                    <div class="drill-mini-label">Avg L / Fill-up</div>
+                    <div class="drill-mini-value">${formatNumber(avgLitersPerFillup, 1)}</div>
+                </div>
+                <div class="drill-mini-card">
+                    <div class="drill-mini-label">Avg Cost / Liter</div>
+                    <div class="drill-mini-value">₱${formatNumber(avgCostPerLiter, 2)}</div>
+                </div>
+            `;
+
+            // ---- transaction table ----
+            drillTableBody.innerHTML = matches.map(r => `
+                <tr>
+                    <td>${r.date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</td>
+                    <td>${r.site}</td>
+                    <td>${r.product}</td>
+                    <td>${formatNumber(r.quantity, 1)}</td>
+                    <td>₱${formatNumber(r.unitPrice, 2)}</td>
+                    <td>₱${formatNumber(r.amount, 2)}</td>
+                </tr>
+            `).join('');
+
+            // ---- trend chart: this vehicle's liters across all months, selected month highlighted ----
+            const vehicleRows = drillRows.filter(r => r.vehicle === vehicle);
+            const byMonth = new Map();
+            vehicleRows.forEach(r => {
+                const key = monthKeyOf(r.date);
+                byMonth.set(key, (byMonth.get(key) || 0) + r.quantity);
+            });
+            const trendKeys = Array.from(byMonth.keys()).sort();
+            const trendLabels = trendKeys.map(k => {
+                const [y, m] = k.split('-');
+                return monthLabelOf(new Date(parseInt(y), parseInt(m) - 1, 1));
+            });
+            const trendData = trendKeys.map(k => byMonth.get(k));
+            const trendColors = trendKeys.map(k => k === monthKey ? '#f97316' : '#2563eb');
+
+            if (drillTrendChart) { drillTrendChart.destroy(); drillTrendChart = null; }
+            const ctx = document.getElementById('drillTrendChart').getContext('2d');
+            drillTrendChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: trendLabels,
+                    datasets: [{
+                        label: 'Liters',
+                        data: trendData,
+                        backgroundColor: trendColors,
+                        borderRadius: 6,
+                        barPercentage: 0.6,
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) { return formatNumber(context.parsed.y, 1) + ' L'; }
+                            }
+                        },
+                        datalabels: {
+                            display: true,
+                            color: '#334155',
+                            font: { weight: 'bold', size: 10 },
+                            anchor: 'end',
+                            align: 'top',
+                            formatter: function(value) { return formatNumber(value, 0); }
+                        }
+                    },
+                    scales: {
+                        y: { beginAtZero: true, grid: { color: 'rgba(0,0,0,0.05)' } }
+                    }
+                }
+            });
+        }
+
+        drillFetchBtn.addEventListener('click', loadDrillData);
+        drillViewBtn.addEventListener('click', viewDrillDetails);
+        drillCsvUrlInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                loadDrillData();
+            }
+        });
+
         // ---- auto-load on first visit ----
         window.addEventListener('load', () => {
             csvUrlInput.value = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSJF9zFlZ6Cf_wqIDALZHjVPCdjoo9xCNa10G-8r6TROtED1jNPhAmDEV7ETuzBc4sybYrPfCdOC_pi/pub?gid=1336709651&single=true&output=csv';
             fetchAndProcess();
+            drillCsvUrlInput.value = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSJF9zFlZ6Cf_wqIDALZHjVPCdjoo9xCNa10G-8r6TROtED1jNPhAmDEV7ETuzBc4sybYrPfCdOC_pi/pub?gid=0&single=true&output=csv';
         });
     })();
 </script>

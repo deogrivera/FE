@@ -322,6 +322,20 @@
         .status-msg.success {
             color: #16a34a;
         }
+        .status-msg .debug-skipped {
+            display: block;
+            font-size: 0.7rem;
+            color: #8b5cf6;
+            margin-top: 0.2rem;
+            padding: 0.3rem 0.6rem;
+            background: #f5f3ff;
+            border-radius: 0.4rem;
+            border: 1px solid #ddd6fe;
+            max-height: 150px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            word-break: break-all;
+        }
         .spinner {
             display: inline-block;
             width: 16px;
@@ -1685,7 +1699,7 @@
             });
 
             // ------------------------------------------------------------------
-            // 9. TRIP TICKETS ISSUED (UPDATED COLUMN MAPPINGS)
+            // 9. TRIP TICKETS ISSUED WITH DEBUG FEATURE
             // ------------------------------------------------------------------
             async function loadTripTickets() {
                 const url = tripTicketsUrlInput.value.trim();
@@ -1714,7 +1728,6 @@
                         plate: 3,               // Col D
                         destination: 5,         // Col F
                         date: 6,                // Col G
-                        // Auto-detect driver column (if exists, we keep it)
                         driver: header.findIndex(h => /driver|operator|name/i.test(h)),
                     };
 
@@ -1742,14 +1755,22 @@
                     tripTicketsRows = [];
                     let parsedCount = 0;
                     let skippedCount = 0;
+                    const skippedRows = [];
 
                     for (let i = 1; i < lines.length; i++) {
                         const cols = parseCSVRow(lines[i]);
                         const plate = (cols[idx.plate] || '').trim().toUpperCase();
-                        const dateObj = parseDateFromCol(cols[idx.date]);
+                        const dateStr = (cols[idx.date] || '').trim();
+                        const dateObj = parseDateFromCol(dateStr);
                         
                         if (!plate || !dateObj) {
                             skippedCount++;
+                            skippedRows.push({
+                                rowIndex: i + 1, // human-readable row number (1-indexed)
+                                plate: plate || '[EMPTY]',
+                                date: dateStr || '[EMPTY]',
+                                reason: !plate ? 'Missing Plate' : 'Invalid Date'
+                            });
                             continue;
                         }
 
@@ -1768,9 +1789,33 @@
                     }
 
                     tripTicketsLoaded = true;
+                    
+                    // Build status message with debug info
+                    let statusHTML = `<i class="fas fa-check-circle"></i> Loaded ${tripTicketsRows.length} trip tickets`;
+                    if (skippedCount > 0) {
+                        statusHTML += ` <span style="color:#f59e0b;">⚠️ ${skippedCount} rows skipped</span>`;
+                        
+                        // Show sample of skipped rows
+                        const sampleSize = Math.min(5, skippedRows.length);
+                        const sampleHTML = skippedRows.slice(0, sampleSize).map(r => 
+                            `Row ${r.rowIndex}: Plate="${r.plate}", Date="${r.date}" → ${r.reason}`
+                        ).join('<br>');
+                        
+                        statusHTML += `<span class="debug-skipped">🔍 First ${sampleSize} skipped rows:<br>${sampleHTML}</span>`;
+                        
+                        // Also log to console for full list
+                        console.log(`=== TRIP TICKETS: ${skippedCount} rows skipped ===`);
+                        console.log('First 10 skipped rows:');
+                        skippedRows.slice(0, 10).forEach(r => {
+                            console.log(`Row ${r.rowIndex}: Plate="${r.plate}", Date="${r.date}" → ${r.reason}`);
+                        });
+                        if (skippedRows.length > 10) {
+                            console.log(`... and ${skippedRows.length - 10} more skipped rows.`);
+                        }
+                    }
+                    
                     tripTicketsStatusMsg.className = 'status-msg success';
-                    tripTicketsStatusMsg.innerHTML =
-                        `<i class="fas fa-check-circle"></i> Loaded ${tripTicketsRows.length} trip tickets (${skippedCount} rows skipped).`;
+                    tripTicketsStatusMsg.innerHTML = statusHTML;
 
                     updateTripTicketsDisplay();
 

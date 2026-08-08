@@ -12,6 +12,8 @@
     </script>
     <!-- Font Awesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" />
+    <!-- PDF.js (renders scanned trip-ticket PDF pages as images in the gallery) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
     <style>
         /* ----- Reset & base ----- */
         * {
@@ -1298,7 +1300,11 @@
                 localStorage.setItem('gss_appsScriptUrl', appsScriptUrlInput.value.trim());
             });
 
-            const folderImageCache = {}; // { folderId: [ {id,name,url}, ... ] }
+            if (window.pdfjsLib) {
+                pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+            }
+
+            const folderImageCache = {}; // { folderId: [ dataUrl/url, ... ] } — flattened, PDF pages already rendered to images
 
             // Lightbox refs
             const lightbox = document.getElementById('imageLightbox');
@@ -2456,6 +2462,31 @@
                 }
             }
 
+            // Renders every page of a base64-encoded PDF to a JPEG data URL.
+            // Each returned data URL slots into the gallery exactly like a normal
+            // image URL — the rest of the app doesn't need to know it came from a PDF.
+            async function renderPdfBase64ToImages(base64) {
+                const raw = atob(base64);
+                const bytes = new Uint8Array(raw.length);
+                for (let i = 0; i < raw.length; i++) bytes[i] = raw.charCodeAt(i);
+
+                const pdf = await pdfjsLib.getDocument({ data: bytes }).promise;
+                const pageUrls = [];
+
+                for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+                    const page = await pdf.getPage(pageNum);
+                    const viewport = page.getViewport({ scale: 1.6 });
+                    const canvas = document.createElement('canvas');
+                    canvas.width = viewport.width;
+                    canvas.height = viewport.height;
+                    const ctx = canvas.getContext('2d');
+                    await page.render({ canvasContext: ctx, viewport }).promise;
+                    pageUrls.push(canvas.toDataURL('image/jpeg', 0.85));
+                }
+
+                return pageUrls;
+            }
+
             async function fetchFolderImages(folderId) {
                 if (folderImageCache[folderId]) return folderImageCache[folderId];
 
@@ -2463,14 +2494,30 @@
                 if (!scriptUrl) {
                     throw new Error('No Apps Script Web App URL set — paste it above to load folder-linked images.');
                 }
-
                 const sep = scriptUrl.includes('?') ? '&' : '?';
-                const response = await fetch(`${scriptUrl}${sep}folderId=${encodeURIComponent(folderId)}`);
-                if (!response.ok) throw new Error(`Apps Script HTTP ${response.status} — ${response.statusText}`);
-                const data = await response.json();
-                if (!data.ok) throw new Error(data.error || 'Apps Script returned an error.');
 
-                const urls = data.images.map(img => img.url);
+                const listResponse = await fetch(`${scriptUrl}${sep}folderId=${encodeURIComponent(folderId)}`);
+                if (!listResponse.ok) throw new Error(`Apps Script HTTP ${listResponse.status} — ${listResponse.statusText}`);
+                const listData = await listResponse.json();
+                if (!listData.ok) throw new Error(listData.error || 'Apps Script returned an error.');
+
+                // Supports the old ({images:[...]}, all images) and new ({items:[...]}, images + PDFs) response shapes.
+                const items = listData.items || (listData.images || []).map(img => ({ ...img, type: 'image' }));
+
+                const urls = [];
+                for (const item of items) {
+                    if (item.type === 'pdf') {
+                        const fileResponse = await fetch(`${scriptUrl}${sep}fileId=${encodeURIComponent(item.id)}`);
+                        if (!fileResponse.ok) throw new Error(`Apps Script HTTP ${fileResponse.status} fetching "${item.name}".`);
+                        const fileData = await fileResponse.json();
+                        if (!fileData.ok) throw new Error(fileData.error || `Failed to load PDF "${item.name}".`);
+                        const pageUrls = await renderPdfBase64ToImages(fileData.base64);
+                        urls.push(...pageUrls);
+                    } else {
+                        urls.push(item.url);
+                    }
+                }
+
                 folderImageCache[folderId] = urls;
                 return urls;
             }
@@ -2587,7 +2634,7 @@
                         <div class="image-card">
                             <div class="no-image-placeholder">
                                 <span class="spinner"></span>
-                                <span>Loading folder…</span>
+                                <span>Loading folder & rendering scans…</span>
                             </div>
                         </div>
                     `;

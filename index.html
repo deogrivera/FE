@@ -1185,6 +1185,10 @@
                                     <button class="sample-link" id="loadImageMatrixSampleBtn" style="color:#ec4899;"><i class="fas fa-arrow-right"></i> use sample</button>
                                 </div>
                                 <div id="imageMatrixStatusMsg" class="status-msg" style="margin-top:0.3rem; font-size:0.8rem;">Paste the Image Matrix CSV link and click Load.</div>
+                                <div class="url-input-row" style="margin-top:0.6rem;">
+                                    <input type="text" id="appsScriptUrlInput" placeholder="Optional: Apps Script Web App URL (for folder-links in the matrix, ends in /exec)" />
+                                </div>
+                                <div style="margin-top:0.2rem; font-size:0.75rem; color:#9ca3af;">If a matrix cell contains a Google Drive <b>folder</b> link instead of an image link, paste your deployed Apps Script Web App URL above so every image inside that folder loads automatically.</div>
                             </div>
 
                             <div id="imageGalleryResults">
@@ -1281,10 +1285,20 @@
 
             // Image Matrix refs
             const imageMatrixUrlInput = document.getElementById('imageMatrixUrlInput');
+            const appsScriptUrlInput = document.getElementById('appsScriptUrlInput');
             const loadImageMatrixBtn = document.getElementById('loadImageMatrixBtn');
             const loadImageMatrixSampleBtn = document.getElementById('loadImageMatrixSampleBtn');
             const imageMatrixStatusMsg = document.getElementById('imageMatrixStatusMsg');
             const imageGrid = document.getElementById('imageGrid');
+
+            // Remember the Apps Script URL locally so it's not retyped every visit
+            const savedAppsScriptUrl = localStorage.getItem('gss_appsScriptUrl');
+            if (savedAppsScriptUrl) appsScriptUrlInput.value = savedAppsScriptUrl;
+            appsScriptUrlInput.addEventListener('change', () => {
+                localStorage.setItem('gss_appsScriptUrl', appsScriptUrlInput.value.trim());
+            });
+
+            const folderImageCache = {}; // { folderId: [ {id,name,url}, ... ] }
 
             // Lightbox refs
             const lightbox = document.getElementById('imageLightbox');
@@ -2340,6 +2354,15 @@
                 return url;
             }
 
+            function extractDriveFolderId(rawUrl) {
+                const url = (rawUrl || '').trim();
+                if (!/drive\.google\.com/.test(url)) return null;
+                // Matches /drive/folders/{id} and /drive/u/0/folders/{id}
+                let m = url.match(/drive\.google\.com\/(?:drive\/)?(?:u\/\d+\/)?folders\/([a-zA-Z0-9_-]+)/);
+                if (m) return m[1];
+                return null;
+            }
+
             function parseImageMatrix(csvText) {
                 const lines = csvText.split(/\r?\n/).filter(l => l.trim() !== '');
                 if (lines.length < 2) throw new Error('Image matrix CSV appears to have no data rows.');
@@ -2369,11 +2392,18 @@
 
                         const cellValue = (cols[m + 1] || '').trim();
                         if (cellValue) {
-                            // Split by commas if multiple URLs
-                            const urls = cellValue.split(',').map(u => toDirectImageUrl(u.trim())).filter(u => u);
-                            if (urls.length > 0) {
-                                matrix[normPlate][monthKey] = urls;
+                            const folderId = extractDriveFolderId(cellValue);
+                            if (folderId) {
+                                // Cell is a Drive FOLDER link — images get fetched via Apps Script on demand
+                                matrix[normPlate][monthKey] = { type: 'folder', folderId };
                                 parsedCount++;
+                            } else {
+                                // Split by commas if multiple individual image URLs
+                                const urls = cellValue.split(',').map(u => toDirectImageUrl(u.trim())).filter(u => u);
+                                if (urls.length > 0) {
+                                    matrix[normPlate][monthKey] = { type: 'urls', urls };
+                                    parsedCount++;
+                                }
                             }
                         }
                     }
@@ -2401,11 +2431,18 @@
                     imageMatrixLoaded = true;
 
                     imageMatrixStatusMsg.className = 'status-msg success';
-                    const totalImages = Object.values(matrix).reduce((sum, plateData) => {
-                        return sum + Object.values(plateData).reduce((s, arr) => s + (Array.isArray(arr) ? arr.length : 0), 0);
-                    }, 0);
+                    let totalImages = 0;
+                    let totalFolders = 0;
+                    Object.values(matrix).forEach(plateData => {
+                        Object.entries(plateData).forEach(([key, cell]) => {
+                            if (key === '_originalPlate' || !cell) return;
+                            if (cell.type === 'urls') totalImages += cell.urls.length;
+                            else if (cell.type === 'folder') totalFolders++;
+                        });
+                    });
+                    const folderNote = totalFolders > 0 ? `, ${totalFolders} folder link${totalFolders === 1 ? '' : 's'}` : '';
                     imageMatrixStatusMsg.innerHTML = 
-                        `<i class="fas fa-check-circle"></i> Loaded ${Object.keys(matrix).length} vehicles, ${monthHeaders.length} months, ${totalImages} image references.`;
+                        `<i class="fas fa-check-circle"></i> Loaded ${Object.keys(matrix).length} vehicles, ${monthHeaders.length} months, ${totalImages} image references${folderNote}.`;
 
                     // Update gallery if a vehicle is selected
                     if (drillVehicleSelect.value && drillMonthSelect.value) {
@@ -2419,7 +2456,63 @@
                 }
             }
 
-            function updateImageGallery() {
+            async function fetchFolderImages(folderId) {
+                if (folderImageCache[folderId]) return folderImageCache[folderId];
+
+                const scriptUrl = appsScriptUrlInput.value.trim();
+                if (!scriptUrl) {
+                    throw new Error('No Apps Script Web App URL set — paste it above to load folder-linked images.');
+                }
+
+                const sep = scriptUrl.includes('?') ? '&' : '?';
+                const response = await fetch(`${scriptUrl}${sep}folderId=${encodeURIComponent(folderId)}`);
+                if (!response.ok) throw new Error(`Apps Script HTTP ${response.status} — ${response.statusText}`);
+                const data = await response.json();
+                if (!data.ok) throw new Error(data.error || 'Apps Script returned an error.');
+
+                const urls = data.images.map(img => img.url);
+                folderImageCache[folderId] = urls;
+                return urls;
+            }
+
+            function renderImageGrid(urls, vehicle, monthKey) {
+                const monthLabel = monthLabelOf(new Date(parseInt(monthKey.split('-')[0]), parseInt(monthKey.split('-')[1]) - 1, 1));
+
+                if (!urls || urls.length === 0) {
+                    imageGrid.innerHTML = `
+                        <div class="image-card">
+                            <div class="no-image-placeholder">
+                                <i class="fas fa-calendar-times"></i>
+                                <span>No images for ${monthLabel}</span>
+                            </div>
+                        </div>
+                    `;
+                    currentLightboxImages = [];
+                    return;
+                }
+
+                imageGrid.innerHTML = urls.map((url, index) => `
+                    <div class="image-card" data-url="${url}" data-index="${index}" data-total="${urls.length}" onclick="openLightbox('${url}', '${vehicle} - ${monthLabel} (${index + 1}/${urls.length})', ${index}, this)">
+                        <img src="${url}" alt="Image ${index + 1}" loading="lazy" 
+                             onerror="this.parentElement.querySelector('.no-image-placeholder').style.display='flex'; this.style.display='none';" />
+                        <div class="image-overlay">
+                            <span class="image-label">📄 Image ${index + 1}</span>
+                            <span class="image-index">${index + 1}/${urls.length}</span>
+                        </div>
+                        <div class="no-image-placeholder" style="display:none;">
+                            <i class="fas fa-exclamation-triangle"></i>
+                            <span>Failed to load</span>
+                        </div>
+                    </div>
+                `).join('');
+
+                currentLightboxImages = urls.map(url => ({
+                    url: url,
+                    caption: `${vehicle} - ${monthLabel}`
+                }));
+            }
+
+            async function updateImageGallery() {
                 const vehicle = drillVehicleSelect.value;
                 const monthKey = drillMonthSelect.value;
 
@@ -2450,18 +2543,15 @@
                 // Try to find images for this plate (using normalized match)
                 const normVehicle = normalizePlate(vehicle);
                 let plateData = null;
-                let matchedPlate = null;
 
                 // Try exact normalized match first
                 if (imageMatrixData[normVehicle]) {
                     plateData = imageMatrixData[normVehicle];
-                    matchedPlate = normVehicle;
                 } else {
                     // Try partial match
                     for (const [key, data] of Object.entries(imageMatrixData)) {
                         if (key.includes(normVehicle) || normVehicle.includes(key)) {
                             plateData = data;
-                            matchedPlate = key;
                             break;
                         }
                     }
@@ -2479,43 +2569,43 @@
                     return;
                 }
 
-                // Get images for the selected month
-                const images = plateData[monthKey] || [];
-                const originalPlate = plateData._originalPlate || matchedPlate;
+                // Get the cell for the selected month — either { type: 'urls', urls } or { type: 'folder', folderId }
+                const cell = plateData[monthKey];
 
-                if (images.length === 0) {
-                    imageGrid.innerHTML = `
-                        <div class="image-card">
-                            <div class="no-image-placeholder">
-                                <i class="fas fa-calendar-times"></i>
-                                <span>No images for ${monthLabelOf(new Date(parseInt(monthKey.split('-')[0]), parseInt(monthKey.split('-')[1]) - 1, 1))}</span>
-                            </div>
-                        </div>
-                    `;
+                if (!cell) {
+                    renderImageGrid([], vehicle, monthKey);
                     return;
                 }
 
-                // Build image grid
-                imageGrid.innerHTML = images.map((url, index) => `
-                    <div class="image-card" data-url="${url}" data-index="${index}" data-total="${images.length}" onclick="openLightbox('${url}', '${vehicle} - ${monthLabelOf(new Date(parseInt(monthKey.split('-')[0]), parseInt(monthKey.split('-')[1]) - 1, 1))} (${index + 1}/${images.length})', ${index}, this)">
-                        <img src="${url}" alt="Image ${index + 1}" loading="lazy" 
-                             onerror="this.parentElement.querySelector('.no-image-placeholder').style.display='flex'; this.style.display='none';" />
-                        <div class="image-overlay">
-                            <span class="image-label">📄 Image ${index + 1}</span>
-                            <span class="image-index">${index + 1}/${images.length}</span>
-                        </div>
-                        <div class="no-image-placeholder" style="display:none;">
-                            <i class="fas fa-exclamation-triangle"></i>
-                            <span>Failed to load</span>
-                        </div>
-                    </div>
-                `).join('');
+                if (cell.type === 'urls') {
+                    renderImageGrid(cell.urls, vehicle, monthKey);
+                    return;
+                }
 
-                // Store images for lightbox navigation
-                currentLightboxImages = images.map(url => ({
-                    url: url,
-                    caption: `${vehicle} - ${monthLabelOf(new Date(parseInt(monthKey.split('-')[0]), parseInt(monthKey.split('-')[1]) - 1, 1))}`
-                }));
+                if (cell.type === 'folder') {
+                    imageGrid.innerHTML = `
+                        <div class="image-card">
+                            <div class="no-image-placeholder">
+                                <span class="spinner"></span>
+                                <span>Loading folder…</span>
+                            </div>
+                        </div>
+                    `;
+                    try {
+                        const urls = await fetchFolderImages(cell.folderId);
+                        renderImageGrid(urls, vehicle, monthKey);
+                    } catch (err) {
+                        imageGrid.innerHTML = `
+                            <div class="image-card">
+                                <div class="no-image-placeholder">
+                                    <i class="fas fa-exclamation-triangle"></i>
+                                    <span>${err.message}</span>
+                                </div>
+                            </div>
+                        `;
+                        console.error(err);
+                    }
+                }
             }
 
             // ------------------------------------------------------------------

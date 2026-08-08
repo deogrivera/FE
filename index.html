@@ -777,6 +777,46 @@
             margin-bottom: 0.3rem;
             opacity: 0.5;
         }
+        /* Full-width state card — used for "no images" / error states so the
+           Drive folder link has room to breathe instead of being squeezed
+           into a 160px grid cell. */
+        .image-card.full-width {
+            grid-column: 1 / -1;
+            aspect-ratio: unset;
+            min-height: 190px;
+            cursor: default;
+        }
+        .image-card.full-width:hover {
+            transform: none;
+            box-shadow: none;
+        }
+        .no-image-placeholder .drive-folder-link {
+            margin-top: 0.85rem;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            background: #ec4899;
+            color: white;
+            padding: 0.55rem 1.4rem;
+            border-radius: 60px;
+            font-weight: 600;
+            font-size: 0.8rem;
+            text-decoration: none;
+            box-shadow: 0 4px 12px -4px #ec489970;
+            transition: 0.15s;
+        }
+        .no-image-placeholder .drive-folder-link:hover {
+            background: #db2777;
+            transform: scale(1.02);
+        }
+        .no-image-placeholder .folder-hint {
+            font-size: 0.7rem;
+            color: #9ca3af;
+            margin-top: 0.5rem;
+            max-width: 360px;
+            text-align: center;
+            line-height: 1.4;
+        }
 
         /* Lightbox */
         .lightbox {
@@ -2522,15 +2562,26 @@
                 return urls;
             }
 
-            function renderImageGrid(urls, vehicle, monthKey) {
+            function driveFolderUrl(folderId) {
+                return `https://drive.google.com/drive/folders/${folderId}`;
+            }
+
+            function renderImageGrid(urls, vehicle, monthKey, folderId = null) {
                 const monthLabel = monthLabelOf(new Date(parseInt(monthKey.split('-')[0]), parseInt(monthKey.split('-')[1]) - 1, 1));
 
                 if (!urls || urls.length === 0) {
+                    const folderBlock = folderId ? `
+                        <a class="drive-folder-link" href="${driveFolderUrl(folderId)}" target="_blank" rel="noopener">
+                            <i class="fab fa-google-drive"></i> Open folder in Google Drive
+                        </a>
+                        <span class="folder-hint">This is the exact folder the dashboard checked — it came back empty or unreadable. Open it to verify manually.</span>
+                    ` : '';
                     imageGrid.innerHTML = `
-                        <div class="image-card">
+                        <div class="image-card full-width">
                             <div class="no-image-placeholder">
                                 <i class="fas fa-calendar-times"></i>
                                 <span>No images for ${monthLabel}</span>
+                                ${folderBlock}
                             </div>
                         </div>
                     `;
@@ -2565,7 +2616,7 @@
 
                 if (!imageMatrixLoaded || !imageMatrixData || Object.keys(imageMatrixData).length === 0) {
                     imageGrid.innerHTML = `
-                        <div class="image-card">
+                        <div class="image-card full-width">
                             <div class="no-image-placeholder">
                                 <i class="fas fa-image"></i>
                                 <span>No image matrix loaded</span>
@@ -2577,7 +2628,7 @@
 
                 if (!vehicle || !monthKey) {
                     imageGrid.innerHTML = `
-                        <div class="image-card">
+                        <div class="image-card full-width">
                             <div class="no-image-placeholder">
                                 <i class="fas fa-hand-pointer"></i>
                                 <span>Select a vehicle & month</span>
@@ -2606,10 +2657,11 @@
 
                 if (!plateData) {
                     imageGrid.innerHTML = `
-                        <div class="image-card">
+                        <div class="image-card full-width">
                             <div class="no-image-placeholder">
                                 <i class="fas fa-search"></i>
                                 <span>No images found for ${vehicle}</span>
+                                <span class="folder-hint">This plate has no row in the loaded Image Matrix sheet, so no folder link is known — check the sheet itself for a row matching this plate.</span>
                             </div>
                         </div>
                     `;
@@ -2630,23 +2682,31 @@
                 }
 
                 if (cell.type === 'folder') {
+                    const folderLinkHtml = `
+                        <a class="drive-folder-link" href="${driveFolderUrl(cell.folderId)}" target="_blank" rel="noopener">
+                            <i class="fab fa-google-drive"></i> Open folder in Google Drive
+                        </a>
+                    `;
                     imageGrid.innerHTML = `
-                        <div class="image-card">
+                        <div class="image-card full-width">
                             <div class="no-image-placeholder">
                                 <span class="spinner"></span>
                                 <span>Loading folder & rendering scans…</span>
+                                ${folderLinkHtml}
                             </div>
                         </div>
                     `;
                     try {
                         const urls = await fetchFolderImages(cell.folderId);
-                        renderImageGrid(urls, vehicle, monthKey);
+                        renderImageGrid(urls, vehicle, monthKey, cell.folderId);
                     } catch (err) {
                         imageGrid.innerHTML = `
-                            <div class="image-card">
+                            <div class="image-card full-width">
                                 <div class="no-image-placeholder">
                                     <i class="fas fa-exclamation-triangle"></i>
                                     <span>${err.message}</span>
+                                    ${folderLinkHtml}
+                                    <span class="folder-hint">Open the folder above to check manually — this is the folder ID (${cell.folderId}) the dashboard tried to read.</span>
                                 </div>
                             </div>
                         `;

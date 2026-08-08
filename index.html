@@ -646,7 +646,7 @@
         }
 
         /* ============================================================ */
-        /* IMAGE GALLERY STYLES */
+        /* NEW: IMAGE GALLERY STYLES */
         /* ============================================================ */
         .image-gallery-section {
             margin-top: 2rem;
@@ -873,23 +873,6 @@
             font-weight: 600;
             color: #9d174d;
             margin-left: 0.5rem;
-        }
-
-        /* PDF badge on image cards */
-        .pdf-badge {
-            position: absolute;
-            top: 0.5rem;
-            right: 0.5rem;
-            background: rgba(139, 92, 246, 0.9);
-            color: white;
-            padding: 0.2rem 0.6rem;
-            border-radius: 30px;
-            font-size: 0.6rem;
-            font-weight: 600;
-            z-index: 2;
-            display: flex;
-            align-items: center;
-            gap: 0.3rem;
         }
 
         /* ----- Responsive ----- */
@@ -1186,7 +1169,7 @@
                         <!-- /TRIP TICKETS SECTION -->
 
                         <!-- ============================================================ -->
-                        <!-- IMAGE GALLERY SECTION (Google Sheets Matrix) -->
+                        <!-- NEW: IMAGE GALLERY SECTION (Google Sheets Matrix) -->
                         <!-- ============================================================ -->
                         <div class="image-gallery-section">
                             <div class="section-title">
@@ -1321,8 +1304,7 @@
                 pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
             }
 
-            // Cache stores { urls: [...], types: [...] } for each folder
-            const folderImageCache = {};
+            const folderImageCache = {}; // { folderId: [ dataUrl/url, ... ] } — flattened, PDF pages already rendered to images
 
             // Lightbox refs
             const lightbox = document.getElementById('imageLightbox');
@@ -1333,7 +1315,7 @@
             const lightboxNext = document.getElementById('lightboxNext');
 
             // Image Matrix data
-            let imageMatrixData = {}; // { plate: { monthKey: { type: 'urls'|'folder', ... } } }
+            let imageMatrixData = {}; // { plate: { monthKey: [url1, url2, ...] } }
             let imageMatrixLoaded = false;
             let currentLightboxImages = [];
             let currentLightboxIndex = 0;
@@ -1389,10 +1371,12 @@
                 return num.toFixed(decimals).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
             }
 
+            // Unified date parser: handles MM/DD/YYYY, M/D/YYYY, and YYYY-MM-DD
             function parseDateFromCol(raw) {
                 if (!raw) return null;
                 const str = String(raw).trim();
                 
+                // Try MM/DD/YYYY or M/D/YYYY format
                 let parts = str.split('/');
                 if (parts.length === 3) {
                     const month = parseInt(parts[0], 10);
@@ -1405,6 +1389,7 @@
                     }
                 }
                 
+                // Try YYYY-MM-DD format
                 parts = str.split('-');
                 if (parts.length === 3) {
                     const year = parseInt(parts[0], 10);
@@ -1419,6 +1404,7 @@
                 return null;
             }
 
+            // Normalize date to MM/DD/YYYY string for display
             function formatDateMMDDYYYY(date) {
                 if (!date || isNaN(date)) return '—';
                 const month = String(date.getMonth() + 1).padStart(2, '0');
@@ -1436,6 +1422,7 @@
                 return names[date.getMonth()] + ' ' + date.getFullYear();
             }
 
+            // Month key from display label (e.g., "Jan 2026" → "2026-01")
             function monthKeyFromLabel(label) {
                 const parts = label.split(' ');
                 if (parts.length !== 2) return null;
@@ -2231,6 +2218,15 @@
                         ).join('<br>');
                         
                         statusHTML += `<span class="debug-skipped">🔍 First ${sampleSize} skipped rows:<br>${sampleHTML}</span>`;
+                        
+                        console.log(`=== TRIP TICKETS: ${skippedCount} rows skipped ===`);
+                        console.log('First 10 skipped rows:');
+                        skippedRows.slice(0, 10).forEach(r => {
+                            console.log(`Row ${r.rowIndex}: Plate="${r.plate}", Date="${r.date}" → ${r.reason}`);
+                        });
+                        if (skippedRows.length > 10) {
+                            console.log(`... and ${skippedRows.length - 10} more skipped rows.`);
+                        }
                     }
                     
                     tripTicketsStatusMsg.className = 'status-msg success';
@@ -2329,20 +2325,25 @@
             });
 
             // ------------------------------------------------------------------
-            // 11. IMAGE MATRIX (Google Sheets Matrix) - UPDATED
+            // 11. IMAGE MATRIX (Google Sheets Matrix)
             // ------------------------------------------------------------------
             function toDirectImageUrl(rawUrl) {
                 const url = (rawUrl || '').trim();
                 if (!url) return url;
 
+                // Already on the reliable host — leave as is
                 if (/lh3\.googleusercontent\.com/.test(url)) {
                     return url;
                 }
 
+                // Not a Drive link at all (e.g. Imgur, S3, direct .jpg) — leave as is
                 if (!/drive\.google\.com/.test(url)) {
                     return url;
                 }
 
+                // Match common Google Drive link formats and pull out the file ID
+                // Covers: /file/d/{id}/view, uc?export=view&id={id}, uc?id={id},
+                // thumbnail?id={id}, open?id={id}
                 let id = null;
                 let m = url.match(/drive\.google\.com\/file\/d\/([a-zA-Z0-9_-]+)/);
                 if (m) id = m[1];
@@ -2352,6 +2353,7 @@
                 }
 
                 if (id) {
+                    // Works reliably as an <img src> for files shared "Anyone with the link"
                     return `https://lh3.googleusercontent.com/d/${id}`;
                 }
 
@@ -2361,6 +2363,7 @@
             function extractDriveFolderId(rawUrl) {
                 const url = (rawUrl || '').trim();
                 if (!/drive\.google\.com/.test(url)) return null;
+                // Matches /drive/folders/{id} and /drive/u/0/folders/{id}
                 let m = url.match(/drive\.google\.com\/(?:drive\/)?(?:u\/\d+\/)?folders\/([a-zA-Z0-9_-]+)/);
                 if (m) return m[1];
                 return null;
@@ -2371,6 +2374,7 @@
                 if (lines.length < 2) throw new Error('Image matrix CSV appears to have no data rows.');
 
                 const header = parseCSVRow(lines[0]);
+                // First column should be "Plate" or similar, rest are month labels
                 const plateColIndex = 0;
                 const monthHeaders = header.slice(1).map(h => h.trim());
                 
@@ -2382,6 +2386,7 @@
                     const plate = (cols[plateColIndex] || '').trim().toUpperCase();
                     if (!plate) continue;
 
+                    // Normalize plate for lookup
                     const normPlate = normalizePlate(plate);
                     matrix[normPlate] = {};
                     matrix[normPlate]._originalPlate = plate;
@@ -2395,9 +2400,11 @@
                         if (cellValue) {
                             const folderId = extractDriveFolderId(cellValue);
                             if (folderId) {
+                                // Cell is a Drive FOLDER link — images get fetched via Apps Script on demand
                                 matrix[normPlate][monthKey] = { type: 'folder', folderId };
                                 parsedCount++;
                             } else {
+                                // Split by commas if multiple individual image URLs
                                 const urls = cellValue.split(',').map(u => toDirectImageUrl(u.trim())).filter(u => u);
                                 if (urls.length > 0) {
                                     matrix[normPlate][monthKey] = { type: 'urls', urls };
@@ -2443,6 +2450,7 @@
                     imageMatrixStatusMsg.innerHTML = 
                         `<i class="fas fa-check-circle"></i> Loaded ${Object.keys(matrix).length} vehicles, ${monthHeaders.length} months, ${totalImages} image references${folderNote}.`;
 
+                    // Update gallery if a vehicle is selected
                     if (drillVehicleSelect.value && drillMonthSelect.value) {
                         updateImageGallery();
                     }
@@ -2454,7 +2462,9 @@
                 }
             }
 
-            // Renders every page of a base64-encoded PDF to a JPEG data URL
+            // Renders every page of a base64-encoded PDF to a JPEG data URL.
+            // Each returned data URL slots into the gallery exactly like a normal
+            // image URL — the rest of the app doesn't need to know it came from a PDF.
             async function renderPdfBase64ToImages(base64) {
                 const raw = atob(base64);
                 const bytes = new Uint8Array(raw.length);
@@ -2477,7 +2487,6 @@
                 return pageUrls;
             }
 
-            // FETCH FOLDER IMAGES - UPDATED to track types
             async function fetchFolderImages(folderId) {
                 if (folderImageCache[folderId]) return folderImageCache[folderId];
 
@@ -2492,11 +2501,10 @@
                 const listData = await listResponse.json();
                 if (!listData.ok) throw new Error(listData.error || 'Apps Script returned an error.');
 
+                // Supports the old ({images:[...]}, all images) and new ({items:[...]}, images + PDFs) response shapes.
                 const items = listData.items || (listData.images || []).map(img => ({ ...img, type: 'image' }));
 
                 const urls = [];
-                const types = [];
-
                 for (const item of items) {
                     if (item.type === 'pdf') {
                         const fileResponse = await fetch(`${scriptUrl}${sep}fileId=${encodeURIComponent(item.id)}`);
@@ -2505,21 +2513,16 @@
                         if (!fileData.ok) throw new Error(fileData.error || `Failed to load PDF "${item.name}".`);
                         const pageUrls = await renderPdfBase64ToImages(fileData.base64);
                         urls.push(...pageUrls);
-                        for (let i = 0; i < pageUrls.length; i++) {
-                            types.push('pdf');
-                        }
                     } else {
                         urls.push(item.url);
-                        types.push('image');
                     }
                 }
 
-                folderImageCache[folderId] = { urls, types };
-                return { urls, types };
+                folderImageCache[folderId] = urls;
+                return urls;
             }
 
-            // RENDER IMAGE GRID - UPDATED to show PDF labels
-            function renderImageGrid(urls, vehicle, monthKey, types = null) {
+            function renderImageGrid(urls, vehicle, monthKey) {
                 const monthLabel = monthLabelOf(new Date(parseInt(monthKey.split('-')[0]), parseInt(monthKey.split('-')[1]) - 1, 1));
 
                 if (!urls || urls.length === 0) {
@@ -2535,39 +2538,27 @@
                     return;
                 }
 
-                // If types not provided, default to 'image'
-                const fileTypes = types || urls.map(() => 'image');
-
-                imageGrid.innerHTML = urls.map((url, index) => {
-                    const type = fileTypes[index] || 'image';
-                    const icon = type === 'pdf' ? '📄' : '🖼️';
-                    const label = type === 'pdf' ? `PDF ${index + 1}` : `Image ${index + 1}`;
-                    const displayLabel = type === 'pdf' ? `PDF ${index + 1}` : `Image ${index + 1}`;
-                    
-                    return `
-                        <div class="image-card" data-url="${url}" data-index="${index}" data-total="${urls.length}" onclick="openLightbox('${url}', '${vehicle} - ${monthLabel} (${displayLabel})', ${index}, this)">
-                            ${type === 'pdf' ? `<div class="pdf-badge"><i class="fas fa-file-pdf"></i> PDF</div>` : ''}
-                            <img src="${url}" alt="${label}" loading="lazy" 
-                                 onerror="this.parentElement.querySelector('.no-image-placeholder').style.display='flex'; this.style.display='none';" />
-                            <div class="image-overlay">
-                                <span class="image-label">${icon} ${displayLabel}</span>
-                                <span class="image-index">${index + 1}/${urls.length}</span>
-                            </div>
-                            <div class="no-image-placeholder" style="display:none;">
-                                <i class="fas fa-exclamation-triangle"></i>
-                                <span>Failed to load</span>
-                            </div>
+                imageGrid.innerHTML = urls.map((url, index) => `
+                    <div class="image-card" data-url="${url}" data-index="${index}" data-total="${urls.length}" onclick="openLightbox('${url}', '${vehicle} - ${monthLabel} (${index + 1}/${urls.length})', ${index}, this)">
+                        <img src="${url}" alt="Image ${index + 1}" loading="lazy" 
+                             onerror="this.parentElement.querySelector('.no-image-placeholder').style.display='flex'; this.style.display='none';" />
+                        <div class="image-overlay">
+                            <span class="image-label">📄 Image ${index + 1}</span>
+                            <span class="image-index">${index + 1}/${urls.length}</span>
                         </div>
-                    `;
-                }).join('');
+                        <div class="no-image-placeholder" style="display:none;">
+                            <i class="fas fa-exclamation-triangle"></i>
+                            <span>Failed to load</span>
+                        </div>
+                    </div>
+                `).join('');
 
-                currentLightboxImages = urls.map((url, index) => ({
+                currentLightboxImages = urls.map(url => ({
                     url: url,
-                    caption: `${vehicle} - ${monthLabel} (${fileTypes[index] === 'pdf' ? 'PDF' : 'Image'} ${index + 1})`
+                    caption: `${vehicle} - ${monthLabel}`
                 }));
             }
 
-            // UPDATE IMAGE GALLERY - UPDATED to handle types
             async function updateImageGallery() {
                 const vehicle = drillVehicleSelect.value;
                 const monthKey = drillMonthSelect.value;
@@ -2596,12 +2587,15 @@
                     return;
                 }
 
+                // Try to find images for this plate (using normalized match)
                 const normVehicle = normalizePlate(vehicle);
                 let plateData = null;
 
+                // Try exact normalized match first
                 if (imageMatrixData[normVehicle]) {
                     plateData = imageMatrixData[normVehicle];
                 } else {
+                    // Try partial match
                     for (const [key, data] of Object.entries(imageMatrixData)) {
                         if (key.includes(normVehicle) || normVehicle.includes(key)) {
                             plateData = data;
@@ -2622,6 +2616,7 @@
                     return;
                 }
 
+                // Get the cell for the selected month — either { type: 'urls', urls } or { type: 'folder', folderId }
                 const cell = plateData[monthKey];
 
                 if (!cell) {
@@ -2630,7 +2625,7 @@
                 }
 
                 if (cell.type === 'urls') {
-                    renderImageGrid(cell.urls, vehicle, monthKey, cell.urls.map(() => 'image'));
+                    renderImageGrid(cell.urls, vehicle, monthKey);
                     return;
                 }
 
@@ -2644,8 +2639,8 @@
                         </div>
                     `;
                     try {
-                        const result = await fetchFolderImages(cell.folderId);
-                        renderImageGrid(result.urls, vehicle, monthKey, result.types);
+                        const urls = await fetchFolderImages(cell.folderId);
+                        renderImageGrid(urls, vehicle, monthKey);
                     } catch (err) {
                         imageGrid.innerHTML = `
                             <div class="image-card">
@@ -2708,7 +2703,7 @@
             loadImageMatrixBtn.addEventListener('click', loadImageMatrix);
             loadImageMatrixSampleBtn.addEventListener('click', () => {
                 imageMatrixUrlInput.value =
-                    'https://docs.google.com/spreadsheets/d/e/2PACX-1vQFeNFw_kepFOL3wYGbbgi3pvcp-DnBM2SKCl67m9Q7N8jPcxUrSJtFD2NQ-xBrbXWwgAkmL9Pjb0Yc/pub?gid=0&single=true&output=csv';
+                    'https://docs.google.com/spreadsheets/d/e/2PACX-1vQOiY9iLl8uqDwtOIqJSl8c0yue4XKNQ62X3guYta0l-wlNM1cHQ1XLE8SGmDJN2bYp-fSdHDaMdyrg/pub?gid=1515574364&single=true&output=csv';
                 loadImageMatrix();
             });
             imageMatrixUrlInput.addEventListener('keydown', (e) => {
@@ -2734,6 +2729,7 @@
                     loadTripTickets();
                 }, 600);
 
+                // Auto-load image matrix sample
                 setTimeout(() => {
                     imageMatrixUrlInput.value =
                         'https://docs.google.com/spreadsheets/d/e/2PACX-1vQFeNFw_kepFOL3wYGbbgi3pvcp-DnBM2SKCl67m9Q7N8jPcxUrSJtFD2NQ-xBrbXWwgAkmL9Pjb0Yc/pub?gid=0&single=true&output=csv';
